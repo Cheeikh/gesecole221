@@ -1,0 +1,43 @@
+{
+  "/api/*": "/$1",
+  
+  "/api/cours/search": "/cours?q=:query",
+  "/api/cours/date/:date": "/cours?dateCours=:date",
+  "/api/cours/professeur/:id": "/cours?professeurId=:id",
+  "/api/cours/classe/:id": "/cours?classeId=:id",
+  "/api/cours/semestre/:id": "/cours?semestreId=:id",
+  "/api/cours/:id/seances": "/seances?coursId=:id",
+  
+  "/api/seances/cours/:id": "/seances?coursId=:id",
+  "/api/seances/date/:date": "/seances?date=:date",
+  "/api/seances/salle/:salle": "/seances?salle=:salle",
+  "/api/seances/:id/absences": "/absences?seanceId=:id",
+  
+  "/api/absences/etudiant/:id": "/absences?etudiantId=:id",
+  "/api/absences/seance/:id": "/absences?seanceId=:id",
+  "/api/absences/date/:date": "/absences?dateAbs=:date",
+  "/api/absences/statut/:statut": "/absences?statut=:statut",
+  "/api/absences/justifier/:id": "/absences/:id",
+  
+  "/api/etudiants/classe/:id": "/etudiants?classeId=:id",
+  "/api/etudiants/search": "/etudiants?q=:query",
+  "/api/etudiants/statut/:statut": "/etudiants?statut=:statut",
+  "/api/etudiants/:id/absences": "/absences?etudiantId=:id",
+  
+  "/api/professeurs/search": "/professeurs?q=:query",
+  "/api/professeurs/specialite/:specialite": "/professeurs?specialite=:specialite",
+  "/api/professeurs/statut/:statut": "/professeurs?statut=:statut",
+  "/api/professeurs/:id/cours": "/cours?professeurId=:id",
+  
+  "/api/classes/niveau/:id": "/classes?niveauId=:id",
+  "/api/classes/semestre/:id": "/classes?semestreId=:id",
+  "/api/classes/professeur/:id": "/classes?professeurPrincipalId=:id",
+  "/api/classes/:id/etudiants": "/etudiants?classeId=:id",
+  "/api/classes/:id/cours": "/cours?classeId=:id",
+  
+  "/api/semestres/actif": "/semestres?statut=en_cours",
+  "/api/semestres/:id/cours": "/cours?semestreId=:id",
+  "/api/semestres/:id/classes": "/classes?semestreId=:id",
+
+  "/api/niveaux/:id/classes": "/classes?niveauId=:id"
+} 

@@ -1,0 +1,113 @@
+@startuml
+skinparam class {
+    BackgroundColor white
+    ArrowColor #666
+    BorderColor #666
+}
+
+class Semestre {
+    -id: Long
+    -nom: String
+    -dateDebut: Date
+    -dateFin: Date
+    -statut: String
+}
+
+class Niveau {
+    -id: Long
+    -nom: String
+    -description: String
+}
+
+class Classe {
+    -id: Long
+    -nom: String
+    -capacite: Integer
+    -statut: String
+    -niveauId: Long
+    -professeurPrincipalId: Long
+    -semestreId: Long
+}
+
+class Etudiant {
+    -id: Long
+    -matricule: String
+    -nomComplet: String
+    -dateNaissance: Date
+    -lieuNaissance: String
+    -adresse: String
+    -telephone: String
+    -email: String
+    -login: String
+    -mdp: String
+    -photo: String
+    -classeId: Long
+    -statut: String
+}
+
+class Professeur {
+    -id: Long
+    -nom: String
+    -prenom: String
+    -grade: String
+    -specialite: String
+    -email: String
+    -telephone: String
+    -photo: String
+    -statut: String
+}
+
+class Cours {
+    -id: Long
+    -libelle: String
+    -description: String
+    -semestreId: Long
+    -professeurId: Long
+    -classeId: Long
+    -heuresTotal: Integer
+    -coefficient: Integer
+    -statut: String
+}
+
+class Seance {
+    -id: Long
+    -coursId: Long
+    -date: Date
+    -heureDebut: Time
+    -heureFin: Time
+    -salle: String
+    -statut: String
+}
+
+class Absence {
+    -id: Long
+    -etudiantId: Long
+    -seanceId: Long
+    -dateAbs: Date
+    -justification: String
+    -dateJustification: Date
+    -statut: String
+    -fichierJustificatif: String
+}
+
+' Relations
+Niveau "1" -- "*" Classe
+Semestre "1" -- "*" Classe
+Semestre "1" -- "*" Cours
+Professeur "1" -- "*" Cours
+Professeur "1" -- "*" Classe : professeurPrincipal
+Classe "1" -- "*" Etudiant
+Classe "1" -- "*" Cours
+Cours "1" -- "*" Seance
+Seance "1" -- "*" Absence
+Etudiant "1" -- "*" Absence
+
+' Notes
+note right of Semestre : "Gère les périodes académiques"
+note right of Niveau : "Définit le niveau d'études"
+note right of Classe : "Regroupe les étudiants"
+note right of Cours : "Matière enseignée"
+note right of Seance : "Instance d'un cours"
+note right of Absence : "Suivi des présences"
+
+@enduml 

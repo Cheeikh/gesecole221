@@ -1,0 +1,51 @@
+{
+  "classes": [
+    {
+      "id": 1,
+      "nom": "Classe A",
+      "niveau": "Niveau 1",
+      "nombreEtudiants": 25,
+      "professeurPrincipal": "Dr. Diop"
+    },
+    {
+      "id": 2,
+      "nom": "Classe B",
+      "niveau": "Niveau 2",
+      "nombreEtudiants": 30,
+      "professeurPrincipal": "Dr. Sow"
+    }
+  ],
+  "etudiants": [
+    {
+      "id": 1,
+      "matricule": "ETU001",
+      "nomComplet": "Fatou Diallo",
+      "adresse": "Dakar, Sénégal",
+      "login": "fdiallo",
+      "niveau": "Niveau 1",
+      "classe": "Classe A",
+      "photo": "https://example.com/photo1.jpg"
+    }
+  ],
+  "professeurs": [
+    {
+      "id": 1,
+      "nom": "Diop",
+      "prenom": "Amadou",
+      "grade": "Docteur",
+      "specialite": "Développement Web",
+      "photo": "https://example.com/photo2.jpg"
+    }
+  ],
+  "cours": [
+    {
+      "id": 1,
+      "dateCours": "2024-02-20",
+      "heureDebut": "08:00",
+      "heureFin": "12:00",
+      "statut": "planifié",
+      "classe": "Classe A",
+      "professeurId": 1
+    }
+  ]
+} 

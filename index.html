@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ecole221</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/src/assets/css/main.css" rel="stylesheet">
+</head>
+<body class="bg-[#f8fafb]">
+    <div class="flex min-h-screen">
+        <!-- Sidebar avec transition sur la largeur -->
+        <div id="sidebar" class="w-64 bg-white shadow-lg transition-all duration-300 h-screen md:relative">
+            <!-- Sidebar will be rendered here -->
+        </div>
+
+        <!-- Contenu principal qui s'adapte -->
+        <main class="flex-1 flex flex-col min-h-screen transition-all duration-300">
+            <div id="topbar" class="border-b bg-white">
+                <!-- TopBar will be rendered here -->
+            </div>
+
+            <div class="flex-1 p-6">
+                <div id="header" class="mb-6">
+                    <!-- Header will be rendered here -->
+                </div>
+
+                <div id="filters" class="mb-6">
+                    <!-- Filters will be rendered here -->
+                </div>
+
+                <div id="content">
+                    <!-- Content will be rendered here -->
+                </div>
+            </div>
+        </main>
+
+        <!-- Overlay pour mobile -->
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden md:hidden"></div>
+    </div>
+
+    <div id="toastContainer" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>

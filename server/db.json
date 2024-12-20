@@ -1,0 +1,184 @@
+{
+  "semestres": [
+    {
+      "id": 1,
+      "nom": "Semestre 1",
+      "dateDebut": "2024-01-01",
+      "dateFin": "2024-06-30",
+      "statut": "en_cours"
+    },
+    {
+      "id": 2,
+      "nom": "Semestre 2",
+      "dateDebut": "2024-07-01",
+      "dateFin": "2024-12-31",
+      "statut": "planifié"
+    }
+  ],
+  "niveaux": [
+    {
+      "id": 1,
+      "nom": "Niveau 1",
+      "description": "Première année"
+    },
+    {
+      "id": 2,
+      "nom": "Niveau 2",
+      "description": "Deuxième année"
+    }
+  ],
+  "classes": [
+    {
+      "id": 1,
+      "nom": "Développement Web - Niveau 1",
+      "niveauId": 1,
+      "professeurPrincipalId": 1,
+      "semestreId": 1,
+      "capacite": 30,
+      "statut": "actif"
+    },
+    {
+      "id": 2,
+      "nom": "Développement Web - Niveau 2",
+      "niveauId": 2,
+      "professeurPrincipalId": 2,
+      "semestreId": 1,
+      "capacite": 25,
+      "statut": "actif"
+    }
+  ],
+  "professeurs": [
+    {
+      "id": 1,
+      "nom": "Diop",
+      "prenom": "Amadou",
+      "grade": "Docteur",
+      "specialite": "Développement Web",
+      "email": "adiop@example.com",
+      "telephone": "+221777777777",
+      "photo": "/assets/images/professors/prof1.jpg",
+      "statut": "actif",
+      "coursAssignes": [1, 2, 3]
+    },
+    {
+      "id": 2,
+      "nom": "Ndiaye",
+      "prenom": "Fatou",
+      "grade": "Ingénieur",
+      "specialite": "UML & Design Patterns",
+      "email": "fndiaye@example.com",
+      "telephone": "+221766666666",
+      "photo": "/assets/images/professors/prof2.jpg",
+      "statut": "actif",
+      "coursAssignes": [4, 5]
+    }
+  ],
+  "etudiants": [
+    {
+      "id": 1,
+      "matricule": "ETU001",
+      "nomComplet": "Fatou Diallo",
+      "dateNaissance": "2000-05-15",
+      "lieuNaissance": "Dakar",
+      "adresse": "Dakar, Sénégal",
+      "telephone": "+221777777777",
+      "email": "fdiallo@example.com",
+      "login": "fdiallo",
+      "mdp": "password123",
+      "photo": "/assets/images/students/student1.jpg",
+      "classeId": 1,
+      "statut": "actif",
+      "absences": [1, 2]
+    },
+    {
+      "id": 2,
+      "matricule": "ETU002",
+      "nomComplet": "Moussa Sow",
+      "dateNaissance": "2001-03-20",
+      "lieuNaissance": "Thiès",
+      "adresse": "Thiès, Sénégal",
+      "telephone": "+221766666666",
+      "email": "msow@example.com",
+      "login": "msow",
+      "mdp": "password123",
+      "photo": "/assets/images/students/student2.jpg",
+      "classeId": 1,
+      "statut": "actif",
+      "absences": [3]
+    }
+  ],
+  "cours": [
+    {
+      "id": 1,
+      "libelle": "JavaScript Avancé",
+      "description": "Cours avancé de JavaScript et ses frameworks modernes",
+      "semestreId": 1,
+      "professeurId": 1,
+      "classeId": 1,
+      "heuresTotal": 30,
+      "coefficient": 3,
+      "statut": "en_cours",
+      "dateCours": "2024-03-15",
+      "heureDebut": "08:00",
+      "heureFin": "12:00"
+    },
+    {
+      "id": 2,
+      "libelle": "UML et Conception",
+      "description": "Introduction à la modélisation UML",
+      "semestreId": 1,
+      "professeurId": 2,
+      "classeId": 1,
+      "heuresTotal": 20,
+      "coefficient": 2,
+      "statut": "planifié",
+      "dateCours": "2024-03-16",
+      "heureDebut": "14:00",
+      "heureFin": "18:00"
+    }
+  ],
+  "seances": [
+    {
+      "id": 1,
+      "coursId": 1,
+      "date": "2024-02-20",
+      "heureDebut": "08:00",
+      "heureFin": "10:00",
+      "salle": "Salle 101",
+      "statut": "terminé",
+      "absences": [1, 2]
+    },
+    {
+      "id": 2,
+      "coursId": 1,
+      "date": "2024-02-22",
+      "heureDebut": "08:00",
+      "heureFin": "10:00",
+      "salle": "Salle 101",
+      "statut": "en_cours",
+      "absences": [3]
+    }
+  ],
+  "absences": [
+    {
+      "id": 1,
+      "etudiantId": 1,
+      "seanceId": 1,
+      "dateAbs": "2024-02-20",
+      "justification": "Certificat médical fourni",
+      "dateJustification": "2024-02-21",
+      "statut": "justifié",
+      "fichierJustificatif": "/uploads/justificatifs/cert_med_001.pdf"
+    },
+    {
+      "id": 2,
+      "etudiantId": 1,
+      "seanceId": 2,
+      "dateAbs": "2024-02-22",
+      "justification": null,
+      "dateJustification": null,
+      "statut": "non_justifié",
+      "fichierJustificatif": null
+    }
+  ]
+} 
