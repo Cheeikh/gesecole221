@@ -1,57 +1,95 @@
 export class ToastManager {
-    constructor(containerId) {
-        this.container = document.getElementById(containerId);
+    constructor() {
+        this.initializeContainer();
     }
 
-    show(message, type = 'info', duration = 3000) {
+    initializeContainer() {
+        let container = document.getElementById('toastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toastContainer';
+            container.className = 'fixed bottom-4 right-4 z-50 space-y-2';
+            document.body.appendChild(container);
+        }
+        this.container = container;
+    }
+
+    show(message, type = 'info') {
+        if (!this.container) {
+            this.initializeContainer();
+        }
+
         const toast = document.createElement('div');
-        toast.className = `
-            p-4 rounded-lg shadow-lg text-white 
-            ${this.getBackgroundColor(type)}
-            transform translate-y-0 opacity-100 
-            transition-all duration-300 ease-in-out
-        `;
-        
+        toast.className = `${this.getToastClasses(type)} transform transition-all duration-300 translate-x-full`;
         toast.innerHTML = `
             <div class="flex items-center">
-                ${this.getIcon(type)}
-                <span class="ml-2">${message}</span>
+                <div class="flex-shrink-0">
+                    ${this.getToastIcon(type)}
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium">
+                        ${message}
+                    </p>
+                </div>
+                <div class="ml-4 flex-shrink-0 flex">
+                    <button class="inline-flex text-gray-400 hover:text-gray-500 focus:outline-none">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             </div>
         `;
 
         this.container.appendChild(toast);
 
         // Animation d'entrée
-        requestAnimationFrame(() => {
-            toast.style.transform = 'translateY(0)';
-            toast.style.opacity = '1';
-        });
-
-        // Suppression automatique
         setTimeout(() => {
-            toast.style.transform = 'translateY(10px)';
-            toast.style.opacity = '0';
-            setTimeout(() => toast.remove(), 300);
-        }, duration);
+            toast.classList.remove('translate-x-full');
+        }, 10);
+
+        // Configurer le bouton de fermeture
+        const closeButton = toast.querySelector('button');
+        closeButton.addEventListener('click', () => this.removeToast(toast));
+
+        // Auto-suppression après 5 secondes
+        setTimeout(() => {
+            this.removeToast(toast);
+        }, 5000);
     }
 
-    getBackgroundColor(type) {
-        const colors = {
-            success: 'bg-green-600',
-            error: 'bg-red-600',
-            warning: 'bg-yellow-600',
-            info: 'bg-blue-600'
-        };
-        return colors[type] || colors.info;
+    removeToast(toast) {
+        toast.classList.add('translate-x-full');
+        setTimeout(() => {
+            if (toast.parentElement === this.container) {
+                this.container.removeChild(toast);
+            }
+        }, 300);
     }
 
-    getIcon(type) {
-        const icons = {
-            success: '<i class="fas fa-check-circle"></i>',
-            error: '<i class="fas fa-exclamation-circle"></i>',
-            warning: '<i class="fas fa-exclamation-triangle"></i>',
-            info: '<i class="fas fa-info-circle"></i>'
-        };
-        return icons[type] || icons.info;
+    getToastClasses(type) {
+        const baseClasses = 'max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1';
+        
+        switch (type) {
+            case 'success':
+                return `${baseClasses} ring-green-500 p-4`;
+            case 'error':
+                return `${baseClasses} ring-red-500 p-4`;
+            case 'warning':
+                return `${baseClasses} ring-yellow-500 p-4`;
+            default:
+                return `${baseClasses} ring-blue-500 p-4`;
+        }
+    }
+
+    getToastIcon(type) {
+        switch (type) {
+            case 'success':
+                return '<i class="fas fa-check-circle text-green-500"></i>';
+            case 'error':
+                return '<i class="fas fa-exclamation-circle text-red-500"></i>';
+            case 'warning':
+                return '<i class="fas fa-exclamation-triangle text-yellow-500"></i>';
+            default:
+                return '<i class="fas fa-info-circle text-blue-500"></i>';
+        }
     }
 } 

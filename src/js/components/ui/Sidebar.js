@@ -63,9 +63,14 @@ export class Sidebar {
     }
 
     setActivePage(pageId) {
+        if (this.currentPage === pageId) return;
+        
         this.currentPage = pageId;
         this.render();
-        this.onPageChange && this.onPageChange(pageId);
+        
+        if (this.onPageChange) {
+            this.onPageChange(pageId);
+        }
         
         if (window.innerWidth < 768) {
             this.container.classList.add('-translate-x-full');

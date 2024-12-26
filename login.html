@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - Gestion des Présences</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+        .pattern-bg {
+            background-image: url('src/assets/images/pattern.png');
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-white flex flex-row justify-center w-full min-h-screen">
+        <div class="bg-white overflow-hidden w-full relative">
+            <div class="relative w-full h-screen">
+                <!-- Bande orange -->
+                <div class="absolute w-full h-1/2 top-0 bg-[#C9151B] shadow-lg"></div>
+                
+                <!-- Pattern overlay -->
+                <div class="absolute inset-0 w-full h-full pattern-bg"></div>
+
+                <!-- Formulaire de connexion -->
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <div class="bg-white rounded-3xl shadow-xl p-8 w-full max-w-md mx-4 z-10">
+                        <!-- Logo -->
+                        <div class="flex mb-6">
+                            <img src="src/assets/images/logo.png" 
+                                 alt="École 221" 
+                                 class="h-24 object-contain">
+                        </div>
+
+                        <!-- En-tête -->
+                        <h1 class="text-2xl font-bold mb-2">Bienvenue sur <span class="text-[#C9151B]">Ecole221</span></h1>
+                        <h2 class="text-3xl font-bold mb-6">Se connecter</h2>
+
+                        <!-- Formulaire -->
+                        <form id="loginForm" class="space-y-6">
+                            <!-- Email/Téléphone -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Entrez votre numéro de téléphone ou votre email
+                                </label>
+                                <input type="text" 
+                                       id="email" 
+                                       name="email"
+                                       class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#e67d23] focus:border-transparent"
+                                       placeholder="Téléphone ou email">
+                            </div>
+
+                            <!-- Mot de passe -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Entrez votre mot de passe
+                                </label>
+                                <input type="password" 
+                                       id="password" 
+                                       name="password"
+                                       class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#e67d23] focus:border-transparent"
+                                       placeholder="Mot de passe">
+                                
+                                <!-- Lien mot de passe oublié -->
+                                <div class="flex justify-end mt-1">
+                                    <a href="#" class="text-sm text-blue-500 hover:underline">
+                                        Mot de passe oublié ?
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- Bouton connexion -->
+                            <button type="submit"
+                                    class="w-full bg-[#C9151B] text-white py-3 rounded-lg hover:bg-[#2c8f86] transition-colors flex items-center justify-center gap-2">
+                                <i class="fas fa-lock text-sm"></i>
+                                Se connecter
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="src/js/login.js"></script>
+</body>
+</html>

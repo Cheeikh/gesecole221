@@ -1,4 +1,35 @@
 {
+  "users": [
+    {
+      "id": 1,
+      "email": "admin@example.com",
+      "password": "admin123",
+      "nom": "Admin",
+      "prenom": "System",
+      "roles": ["admin"],
+      "statut": "actif"
+    },
+    {
+      "id": 2,
+      "email": "professeur@example.com",
+      "password": "prof123",
+      "nom": "Diop",
+      "prenom": "Amadou",
+      "roles": ["professeur"],
+      "statut": "actif",
+      "professeurId": 1
+    },
+    {
+      "id": 3,
+      "email": "etudiant@example.com",
+      "password": "etudiant123",
+      "nom": "Diallo",
+      "prenom": "Fatou",
+      "roles": ["etudiant"],
+      "statut": "actif",
+      "etudiantId": 1
+    }
+  ],
   "semestres": [
     {
       "id": 1,
@@ -54,11 +85,12 @@
       "prenom": "Amadou",
       "grade": "Docteur",
       "specialite": "Développement Web",
-      "email": "adiop@example.com",
+      "email": "professeur@example.com",
       "telephone": "+221777777777",
       "photo": "/assets/images/professors/prof1.jpg",
       "statut": "actif",
-      "coursAssignes": [1, 2, 3]
+      "coursAssignes": [1, 2, 3],
+      "userId": 2
     },
     {
       "id": 2,
@@ -82,13 +114,12 @@
       "lieuNaissance": "Dakar",
       "adresse": "Dakar, Sénégal",
       "telephone": "+221777777777",
-      "email": "fdiallo@example.com",
-      "login": "fdiallo",
-      "mdp": "password123",
+      "email": "etudiant@example.com",
       "photo": "/assets/images/students/student1.jpg",
       "classeId": 1,
       "statut": "actif",
-      "absences": [1, 2]
+      "absences": [1, 2],
+      "userId": 3
     },
     {
       "id": 2,
@@ -99,8 +130,6 @@
       "adresse": "Thiès, Sénégal",
       "telephone": "+221766666666",
       "email": "msow@example.com",
-      "login": "msow",
-      "mdp": "password123",
       "photo": "/assets/images/students/student2.jpg",
       "classeId": 1,
       "statut": "actif",
@@ -109,18 +138,18 @@
   ],
   "cours": [
     {
-      "id": 1,
-      "libelle": "JavaScript Avancé",
-      "description": "Cours avancé de JavaScript et ses frameworks modernes",
-      "semestreId": 1,
+      "libelle": "JavaScript AvancéE",
       "professeurId": 1,
       "classeId": 1,
       "heuresTotal": 30,
       "coefficient": 3,
-      "statut": "en_cours",
-      "dateCours": "2024-03-15",
+      "description": "Cours avancé de JavaScript et ses frameworks modernes",
+      "id": 1,
+      "statut": "planifié",
+      "dateCours": "2024-12-25",
       "heureDebut": "08:00",
-      "heureFin": "12:00"
+      "heureFin": "12:00",
+      "salle": "Salle 101"
     },
     {
       "id": 2,
@@ -146,7 +175,20 @@
       "heureFin": "10:00",
       "salle": "Salle 101",
       "statut": "terminé",
-      "absences": [1, 2]
+      "absences": [
+        1,
+        2
+      ],
+      "cours": {
+        "id": 1,
+        "libelle": "JavaScript Avancé",
+        "professeurId": 1,
+        "professeur": {
+          "id": 1,
+          "nom": "Diop",
+          "prenom": "Amadou"
+        }
+      }
     },
     {
       "id": 2,
@@ -156,7 +198,14 @@
       "heureFin": "10:00",
       "salle": "Salle 101",
       "statut": "en_cours",
-      "absences": [3]
+      "absences": [
+        3
+      ],
+      "cours": {
+        "id": 1,
+        "libelle": "JavaScript Avancé",
+        "professeurId": 1
+      }
     }
   ],
   "absences": [
@@ -181,4 +230,4 @@
       "fichierJustificatif": null
     }
   ]
-} 
+}

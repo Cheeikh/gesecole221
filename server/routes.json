@@ -1,6 +1,9 @@
 {
   "/api/*": "/$1",
   
+  "/api/auth/login": "/users?email=:email&password=:password",
+  "/api/auth/me": "/users/:id",
+  
   "/api/cours/search": "/cours?q=:query",
   "/api/cours/date/:date": "/cours?dateCours=:date",
   "/api/cours/professeur/:id": "/cours?professeurId=:id",
@@ -8,8 +11,8 @@
   "/api/cours/semestre/:id": "/cours?semestreId=:id",
   "/api/cours/:id/seances": "/seances?coursId=:id",
   
-  "/api/seances/cours/:id": "/seances?coursId=:id",
-  "/api/seances/date/:date": "/seances?date=:date",
+  "/api/seances/cours/:id": "/seances?coursId=:id&_expand=cours&_expand=professeur",
+  "/api/seances/date/:date": "/seances?date=:date&_expand=cours",
   "/api/seances/salle/:salle": "/seances?salle=:salle",
   "/api/seances/:id/absences": "/absences?seanceId=:id",
   
@@ -39,5 +42,10 @@
   "/api/semestres/:id/cours": "/cours?semestreId=:id",
   "/api/semestres/:id/classes": "/classes?semestreId=:id",
 
-  "/api/niveaux/:id/classes": "/classes?niveauId=:id"
+  "/api/niveaux/:id/classes": "/classes?niveauId=:id",
+
+  "/api/seances": "/seances?_expand=cours",
+  "/api/seances/:id": "/seances/:id?_expand=cours",
+
+  "/api/cours/:id/professeur": "/professeurs/:professeurId"
 } 

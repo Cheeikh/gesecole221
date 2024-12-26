@@ -1,52 +1,33 @@
-import { ApiClient, API_CONFIG } from '../api/config.js';
+import { dataProvider } from '../providers/DataProvider.js';
+import { dateFormatter } from '../utils/dateFormatter.js';
 
 export class SeanceService {
     async getSeances(params = {}) {
-        try {
-            const seances = await ApiClient.get(API_CONFIG.ENDPOINTS.SEANCES, params);
-            
-            // Enrichir les séances avec les données associées
-            const seancesEnrichies = await Promise.all(seances.map(async (seance) => {
-                const [cours, absences] = await Promise.all([
-                    ApiClient.get(`${API_CONFIG.ENDPOINTS.COURS}/${seance.coursId}`),
-                    ApiClient.get(`${API_CONFIG.ENDPOINTS.SEANCES}/${seance.id}/absences`)
-                ]);
-                
-                return {
-                    ...seance,
-                    cours,
-                    absences
-                };
-            }));
-            
-            return seancesEnrichies;
-        } catch (error) {
-            console.error('Erreur lors du chargement des séances:', error);
-            throw error;
-        }
+        return dataProvider.getSeances(params);
     }
 
-    async getSeancesParCours(coursId) {
-        return ApiClient.get(`${API_CONFIG.ENDPOINTS.SEANCES}/cours/${coursId}`);
+    async getSeanceById(id) {
+        return dataProvider.getSeanceById(id);
     }
 
-    async getSeancesParDate(date) {
-        return ApiClient.get(`${API_CONFIG.ENDPOINTS.SEANCES}/date/${date}`);
+    async createSeance(data) {
+        return dataProvider.create('/seances', data);
     }
 
-    async getSeancesParSalle(salle) {
-        return ApiClient.get(`${API_CONFIG.ENDPOINTS.SEANCES}/salle/${salle}`);
-    }
-
-    async createSeance(seanceData) {
-        return ApiClient.post(API_CONFIG.ENDPOINTS.SEANCES, seanceData);
-    }
-
-    async updateSeance(id, seanceData) {
-        return ApiClient.put(`${API_CONFIG.ENDPOINTS.SEANCES}/${id}`, seanceData);
+    async updateSeance(id, data) {
+        return dataProvider.update('/seances', id, data);
     }
 
     async deleteSeance(id) {
-        return ApiClient.delete(`${API_CONFIG.ENDPOINTS.SEANCES}/${id}`);
+        return dataProvider.delete('/seances', id);
+    }
+
+    async getSeancesByCours(coursId) {
+        return dataProvider.getSeancesByCours(coursId);
+    }
+
+    async getSeancesByDate(date) {
+        const formattedDate = dateFormatter.toInputDate(new Date(date));
+        return dataProvider.getSeances({ date: formattedDate });
     }
 } 

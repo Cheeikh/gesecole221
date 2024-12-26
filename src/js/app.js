@@ -14,16 +14,32 @@ import { ProfesseurService } from './services/ProfesseurService.js';
 import { EtudiantService } from './services/EtudiantService.js';
 import { SeanceService } from './services/SeanceService.js';
 import { AbsenceService } from './services/AbsenceService.js';
+import { ClasseService } from './services/ClasseService.js';
+import { AuthService } from './services/AuthService.js';
 
 // Ajout des imports des tables
 import { ProfesseurTable } from './components/ProfesseurTable.js';
 import { EtudiantTable } from './components/EtudiantTable.js';
 import { SeanceTable } from './components/SeanceTable.js';
 import { AbsenceTable } from './components/AbsenceTable.js';
+import { CoursModal } from './components/modals/CoursModal.js';
+import { CoursDetails } from './components/CoursDetails.js';
+import { CoursDetailsModal } from './components/modals/CoursDetailsModal.js';
 
 export class App {
     constructor() {
         try {
+            this.authService = new AuthService();
+            
+            // Vérifier l'authentification
+            if (!this.authService.isAuthenticated()) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            // Initialiser le gestionnaire de toast en premier
+            this.toast = new ToastManager();
+            
             // Initialiser les services
             this.initializeServices();
             
@@ -55,24 +71,43 @@ export class App {
     }
 
     initializeComponents() {
+        // Vérifier l'existence des éléments DOM avant l'initialisation
+        const sidebarElement = document.getElementById('sidebar');
+        const topbarElement = document.getElementById('topbar');
+        const headerElement = document.getElementById('header');
+        const filtersElement = document.getElementById('filters');
+
+        if (!sidebarElement || !topbarElement || !headerElement || !filtersElement) {
+            throw new Error('Éléments DOM requis non trouvés');
+        }
+
         // Initialize UI Components
         this.sidebar = new Sidebar('sidebar');
         this.topbar = new TopBar('topbar');
         this.header = new Header('header');
         this.filters = new Filters('filters');
         
-        // Initialize List Components
-        this.professeurList = new ProfesseurList('professeurs-list');
-        this.etudiantList = new EtudiantList('etudiants-list');
-        this.seanceList = new SeanceList('seances-list');
-        this.absenceList = new AbsenceList('absences-list');
+        // Initialize List Components with null checks
+        this.professeurList = document.getElementById('professeurs-list') ? 
+            new ProfesseurList('professeurs-list') : null;
+        this.etudiantList = document.getElementById('etudiants-list') ? 
+            new EtudiantList('etudiants-list') : null;
+        this.seanceList = document.getElementById('seances-list') ? 
+            new SeanceList('seances-list') : null;
+        this.absenceList = document.getElementById('absences-list') ? 
+            new AbsenceList('absences-list') : null;
 
-        // Initialize Table Components
-        this.coursTable = new CoursTable('cours-table-body');
-        this.professeurTable = new ProfesseurTable('professeurs-table-body');
-        this.etudiantTable = new EtudiantTable('etudiants-table-body');
-        this.seanceTable = new SeanceTable('seances-table-body');
-        this.absenceTable = new AbsenceTable('absences-table-body');
+        // Initialize Table Components with null checks
+        this.coursTable = document.getElementById('cours-table-body') ? 
+            new CoursTable('cours-table-body') : null;
+        this.professeurTable = document.getElementById('professeurs-table-body') ? 
+            new ProfesseurTable('professeurs-table-body') : null;
+        this.etudiantTable = document.getElementById('etudiants-table-body') ? 
+            new EtudiantTable('etudiants-table-body') : null;
+        this.seanceTable = document.getElementById('seances-table-body') ? 
+            new SeanceTable('seances-table-body') : null;
+        this.absenceTable = document.getElementById('absences-table-body') ? 
+            new AbsenceTable('absences-table-body') : null;
         
         // Render components
         this.sidebar.render();
@@ -80,71 +115,135 @@ export class App {
         this.header.render();
         this.filters.render();
 
-        // Setup TopBar search callback
-        this.topbar.onSearch((query) => {
-            this.filters.updateSearchValue(query);
-            this.handleSearch(query);
-        });
-
-        // Setup component callbacks
-        this.header.onRefresh(() => this.loadData());
-        this.filters.on('onSearch', (query) => {
-            this.handleSearch(query);
-        });
-        this.filters.on('onDateFilter', date => this.handleDateFilter(date));
-        this.filters.on('onStatusFilter', status => this.handleStatusFilter(status));
-        this.filters.on('onAdd', () => this.openModal());
-
-        // Setup Sidebar navigation
-        this.sidebar.onPageChange((pageId) => {
-            this.handlePageChange(pageId);
-        });
-
-        // Setup Header callbacks
-        this.header.onExport(() => {
-            this.exportData();
-        });
-
-        this.header.onImport(() => {
-            this.importData();
-        });
-
-        this.header.onDownloadReport(() => {
-            this.downloadReport();
-        });
-
-        this.header.onPeriodChange((period) => {
-            this.changePeriod(period);
-        });
+        // Setup event listeners
+        this.setupEventListeners();
     }
 
     setupEventListeners() {
+        // Vérifier l'existence des éléments avant d'ajouter les écouteurs
+        
         // Sidebar mobile
-        this.openSidebarBtn.addEventListener('click', () => {
-            this.sidebar.classList.remove('-translate-x-full');
-        });
+        const openSidebarBtn = document.getElementById('openSidebar');
+        const closeSidebarBtn = document.getElementById('closeSidebar');
+        
+        if (openSidebarBtn) {
+            openSidebarBtn.addEventListener('click', () => {
+                this.sidebar.container.classList.remove('-translate-x-full');
+            });
+        }
 
-        this.closeSidebarBtn.addEventListener('click', () => {
-            this.sidebar.classList.add('-translate-x-full');
-        });
+        if (closeSidebarBtn) {
+            closeSidebarBtn.addEventListener('click', () => {
+                this.sidebar.container.classList.add('-translate-x-full');
+            });
+        }
 
         // Filters
-        this.searchInput.addEventListener('input', this.debounce(() => this.loadData(), 300));
-        this.dateFilter.addEventListener('change', () => this.loadData());
-        this.statusFilter.addEventListener('change', () => this.loadData());
+        const searchInput = document.getElementById('searchInput');
+        const dateFilter = document.getElementById('dateFilter');
+        const statusFilter = document.getElementById('statusFilter');
+        
+        if (searchInput) {
+            searchInput.addEventListener('input', this.debounce(() => this.loadData(), 300));
+        }
+        
+        if (dateFilter) {
+            dateFilter.addEventListener('change', () => this.loadData());
+        }
+        
+        if (statusFilter) {
+            statusFilter.addEventListener('change', () => this.loadData());
+        }
 
         // Modal
-        this.addCourseBtn.addEventListener('click', () => this.openModal());
-        this.closeModalBtn.addEventListener('click', () => this.closeModal());
-        this.cancelModalBtn.addEventListener('click', () => this.closeModal());
-        this.modalForm.addEventListener('submit', (e) => this.handleFormSubmit(e));
+        const addCourseBtn = document.getElementById('addCourseBtn');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const cancelModalBtn = document.getElementById('cancelModalBtn');
+        const modalForm = document.getElementById('modalForm');
+        
+        if (addCourseBtn) {
+            addCourseBtn.addEventListener('click', () => this.openModal());
+        }
+        
+        if (closeModalBtn) {
+            closeModalBtn.addEventListener('click', () => this.closeModal());
+        }
+        
+        if (cancelModalBtn) {
+            cancelModalBtn.addEventListener('click', () => this.closeModal());
+        }
+        
+        if (modalForm) {
+            modalForm.addEventListener('submit', (e) => this.handleFormSubmit(e));
+        }
 
         // Pagination
-        this.prevPageBtn.addEventListener('click', () => this.changePage(-1));
-        this.nextPageBtn.addEventListener('click', () => this.changePage(1));
+        const prevPageBtn = document.getElementById('prevPageBtn');
+        const nextPageBtn = document.getElementById('nextPageBtn');
+        
+        if (prevPageBtn) {
+            prevPageBtn.addEventListener('click', () => this.changePage(-1));
+        }
+        
+        if (nextPageBtn) {
+            nextPageBtn.addEventListener('click', () => this.changePage(1));
+        }
 
         // Refresh
-        document.getElementById('refreshBtn').addEventListener('click', () => this.loadData());
+        const refreshBtn = document.getElementById('refreshBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => this.loadData());
+        }
+
+        // Setup TopBar search callback
+        if (this.topbar) {
+            this.topbar.onSearch((query) => {
+                if (this.filters) {
+                    this.filters.updateSearchValue(query);
+                    this.handleSearch(query);
+                }
+            });
+        }
+
+        // Setup component callbacks
+        if (this.header) {
+            this.header.onRefresh(() => this.loadData());
+        }
+
+        if (this.filters) {
+            this.filters.on('onSearch', (query) => {
+                this.handleSearch(query);
+            });
+            this.filters.on('onDateFilter', date => this.handleDateFilter(date));
+            this.filters.on('onStatusFilter', status => this.handleStatusFilter(status));
+            this.filters.on('onAdd', () => this.openModal());
+        }
+
+        // Setup Sidebar navigation
+        if (this.sidebar) {
+            this.sidebar.onPageChange((pageId) => {
+                this.handlePageChange(pageId);
+            });
+        }
+
+        // Setup Header callbacks
+        if (this.header) {
+            this.header.onExport(() => {
+                this.exportData();
+            });
+
+            this.header.onImport(() => {
+                this.importData();
+            });
+
+            this.header.onDownloadReport(() => {
+                this.downloadReport();
+            });
+
+            this.header.onPeriodChange((period) => {
+                this.changePeriod(period);
+            });
+        }
     }
 
     async loadData() {
@@ -275,50 +374,46 @@ export class App {
     }
 
     async handlePageChange(pageId) {
-        this.filters.setCurrentPage(pageId);
         try {
             // Mettre à jour le titre
             this.header.setTitle(this.getPageTitle(pageId));
             
-            // Vider le contenu actuel
+            // Récupérer le container de contenu
             const contentContainer = document.getElementById('content');
             if (!contentContainer) {
                 throw new Error('Container de contenu non trouvé');
             }
             
-            // Afficher un indicateur de chargement
+            // Afficher le loader
             contentContainer.innerHTML = `
                 <div class="flex justify-center items-center h-64">
                     <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#E67D23]"></div>
                 </div>
             `;
             
-            // Charger le nouveau contenu en fonction de la page
+            // Réinitialiser les composants existants
+            this.resetComponents();
+            
+            // Charger la nouvelle page
             switch (pageId) {
                 case 'dashboard':
                     await this.loadDashboardPage();
                     break;
-                
                 case 'cours':
                     await this.loadCoursPage();
                     break;
-                
                 case 'seances':
                     await this.loadSeancesPage();
                     break;
-                
                 case 'professeurs':
                     await this.loadProfesseursPage();
                     break;
-                
                 case 'etudiants':
                     await this.loadEtudiantsPage();
                     break;
-                
                 case 'absences':
                     await this.loadAbsencesPage();
                     break;
-                    
                 default:
                     contentContainer.innerHTML = `
                         <div class="text-center text-gray-500 mt-8">
@@ -327,8 +422,8 @@ export class App {
                     `;
             }
 
-            // Masquer les filtres pour toutes les pages sauf 'cours'
-            const filtersContainer = document.getElementById('filters-container');
+            // Gérer l'affichage des filtres
+            const filtersContainer = document.getElementById('filters');
             if (filtersContainer) {
                 filtersContainer.style.display = pageId === 'cours' ? 'block' : 'none';
             }
@@ -336,19 +431,6 @@ export class App {
         } catch (error) {
             console.error('Erreur lors du changement de page:', error);
             this.toast.show('Erreur lors du chargement de la page: ' + error.message, 'error');
-            
-            const contentContainer = document.getElementById('content');
-            if (contentContainer) {
-                contentContainer.innerHTML = `
-                    <div class="text-center text-red-500 mt-8">
-                        <i class="fas fa-exclamation-circle text-3xl mb-2"></i>
-                        <p>Une erreur est survenue lors du chargement de la page.</p>
-                        <button onclick="location.reload()" class="btn-primary mt-4">
-                            <i class="fas fa-sync-alt mr-2"></i>Recharger la page
-                        </button>
-                    </div>
-                `;
-            }
         }
     }
 
@@ -365,271 +447,493 @@ export class App {
     }
 
     async loadCoursPage() {
+        if (!this.checkPermission('view_cours')) return;
         try {
             const contentContainer = document.getElementById('content');
             if (!contentContainer) {
                 throw new Error('Container de contenu non trouvé');
             }
 
-            // Créer la structure de base
             contentContainer.innerHTML = `
-                <div class="space-y-6">
-                    <div id="filters-container"></div>
-                    <div class="bg-white rounded-lg shadow-lg p-4">
-                        <div class="overflow-x-auto">
-                            <table class="w-full">
-                                <thead>
-                                    <tr class="bg-gray-50">
-                                        <th class="p-4 text-left">Cours</th>
-                                        <th class="p-4 text-left">Date</th>
-                                        <th class="p-4 text-left">Horaires</th>
-                                        <th class="p-4 text-left">Coefficient</th>
-                                        <th class="p-4 text-left">Statut</th>
-                                        <th class="p-4 text-left">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="cours-table-body">
-                                    <tr>
-                                        <td colspan="6" class="text-center py-4">
-                                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="mb-6">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <h2 class="text-xl font-semibold">Liste des Cours</h2>
+                            <div class="flex flex-col md:flex-row gap-4">
+                                <div class="flex gap-2">
+                                    <input type="text" id="searchCours" placeholder="Rechercher un cours..."
+                                        class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <select id="filterProfesseur" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                        <option value="">Tous les professeurs</option>
+                                    </select>
+                                    <select id="filterStatut" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                        <option value="">Tous les statuts</option>
+                                        <option value="en_cours">En cours</option>
+                                        <option value="planifié">Planifié</option>
+                                        <option value="terminé">Terminé</option>
+                                    </select>
+                                </div>
+                                <button id="addCoursBtn" class="btn-primary">
+                                    <i class="fas fa-plus mr-2"></i>Ajouter un cours
+                                </button>
+                            </div>
                         </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cours</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Professeur</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Coefficient</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cours-table-body">
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             `;
 
-            // Initialiser les filtres
-            const filters = new Filters('filters-container');
-            filters.render();
-
-            // Attendre que le DOM soit mis à jour
-            await new Promise(resolve => setTimeout(resolve, 0));
-
-            // Initialiser la table des cours
-            const coursTableBody = document.getElementById('cours-table-body');
-            if (!coursTableBody) {
-                throw new Error('Container de table des cours non trouvé');
-            }
-
+            // Initialiser la table
             this.coursTable = new CoursTable('cours-table-body');
             
-            // Charger les données
-            const cours = await this.coursService.getCours();
-            console.log('Cours chargés:', cours); // Pour le débogage
+            // Charger les données initiales
+            await this.loadCoursData();
             
-            // Vérifier que coursTable est bien initialisé avant de render
-            if (this.coursTable) {
-                this.coursTable.render(cours);
-            } else {
-                console.error('coursTable non initialisé');
-                throw new Error('Table des cours non initialisée');
-            }
-
-            // Setup des écouteurs d'événements des filtres
-            filters.on('onSearch', async (query) => {
-                const filteredCours = await this.coursService.getCours({ q: query });
-                this.coursTable.render(filteredCours);
-            });
-
-            filters.on('onDateFilter', async (date) => {
-                const filteredCours = await this.coursService.getCoursParDate(date);
-                this.coursTable.render(filteredCours);
-            });
-
-            filters.on('onStatusFilter', async (status) => {
-                const filteredCours = await this.coursService.getCours({ statut: status });
-                this.coursTable.render(filteredCours);
-            });
-
-            filters.on('onAdd', () => {
-                // Implémenter l'ouverture du modal d'ajout
-                console.log('Ajouter un cours');
-            });
+            // Configurer les filtres
+            await this.setupCoursFilters();
+            
+            // Configurer les événements
+            this.setupCoursEventListeners();
 
         } catch (error) {
-            console.error('Erreur lors du chargement de la page cours:', error);
-            this.toast.show('Erreur lors du chargement de la page: ' + error.message, 'error');
+            console.error('Erreur lors du chargement de la page des cours:', error);
+            this.toast.show('Erreur lors du chargement de la page des cours', 'error');
+        }
+    }
+
+    async loadCoursData(filters = {}) {
+        try {
+            const cours = await this.coursService.getCours(filters);
+            if (this.coursTable) {
+                this.coursTable.render(cours);
+            }
+        } catch (error) {
+            console.error('Erreur lors du chargement des cours:', error);
+            this.toast.show('Erreur lors du chargement des cours', 'error');
+        }
+    }
+
+    async setupCoursFilters() {
+        try {
+            // Charger les professeurs pour le filtre
+            const professeurs = await this.professeurService.getProfesseurs();
+            const filterProfesseur = document.getElementById('filterProfesseur');
             
-            // Afficher un message d'erreur dans le contenu
+            if (filterProfesseur) {
+                professeurs.forEach(prof => {
+                    const option = document.createElement('option');
+                    option.value = prof.id;
+                    option.textContent = `${prof.nom} ${prof.prenom}`;
+                    filterProfesseur.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Erreur lors de la configuration des filtres:', error);
+        }
+    }
+
+    setupCoursEventListeners() {
+        // Bouton d'ajout
+        const addBtn = document.getElementById('addCoursBtn');
+        if (addBtn) {
+            addBtn.addEventListener('click', () => this.openCoursModal());
+        }
+
+        // Recherche
+        const searchInput = document.getElementById('searchCours');
+        if (searchInput) {
+            searchInput.addEventListener('input', this.debounce(() => {
+                this.loadCoursData({ q: searchInput.value });
+            }, 300));
+        }
+
+        // Filtres
+        const filterProfesseur = document.getElementById('filterProfesseur');
+        const filterStatut = document.getElementById('filterStatut');
+
+        if (filterProfesseur) {
+            filterProfesseur.addEventListener('change', () => {
+                this.loadCoursData({
+                    professeurId: filterProfesseur.value,
+                    statut: filterStatut.value
+                });
+            });
+        }
+
+        if (filterStatut) {
+            filterStatut.addEventListener('change', () => {
+                this.loadCoursData({
+                    professeurId: filterProfesseur.value,
+                    statut: filterStatut.value
+                });
+            });
+        }
+    }
+
+    async openCoursModal(coursId = null) {
+        try {
+            if (!this.classeService) {
+                throw new Error('ClasseService n\'est pas initialisé');
+            }
+
+            const coursModal = new CoursModal();
+            if (coursId) {
+                const cours = await this.coursService.getCoursById(coursId);
+                if (!cours) {
+                    throw new Error('Cours non trouvé');
+                }
+                await coursModal.render(cours);
+            } else {
+                await coursModal.render();
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'ouverture du modal:', error);
+            this.toast.show('Erreur lors de l\'ouverture du formulaire: ' + error.message, 'error');
+        }
+    }
+
+    async viewCoursDetails(coursId) {
+        try {
+            const detailsModal = new CoursDetailsModal();
+            await detailsModal.render(coursId);
+        } catch (error) {
+            console.error('Erreur lors de l\'affichage des détails du cours:', error);
+            this.toast.show('Erreur lors de l\'affichage des détails du cours', 'error');
+        }
+    }
+
+    async editCours(id) {
+        if (!this.checkPermission('edit_cours')) return;
+        await this.openCoursModal(id);
+    }
+
+    async deleteCours(id) {
+        if (!this.checkPermission('edit_cours')) return;
+        if (!confirm('Êtes-vous sûr de vouloir supprimer ce cours ?')) return;
+        
+        try {
+            await this.coursService.deleteCours(id);
+            this.toast.show('Cours supprimé avec succès', 'success');
+            this.loadCoursData();
+        } catch (error) {
+            console.error('Erreur lors de la suppression du cours:', error);
+            this.toast.show('Erreur lors de la suppression du cours', 'error');
+        }
+    }
+
+    async loadProfesseursPage() {
+        try {
             const contentContainer = document.getElementById('content');
-            if (contentContainer) {
-                contentContainer.innerHTML = `
-                    <div class="bg-red-50 text-red-600 p-4 rounded-lg">
-                        <div class="flex items-center">
-                            <i class="fas fa-exclamation-circle mr-2"></i>
-                            <span>Une erreur est survenue lors du chargement des cours.</span>
-                        </div>
-                        <div class="mt-2 text-sm">
-                            ${error.message}
-                        </div>
+            if (!contentContainer) {
+                throw new Error('Container de contenu non trouvé');
+            }
+
+            // Afficher le loader
+            contentContainer.innerHTML = `
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="mb-4 flex justify-between items-center">
+                        <h2 class="text-xl font-semibold">Liste des Professeurs</h2>
+                        <button class="btn-primary" id="addProfesseurBtn">
+                            <i class="fas fa-plus mr-2"></i>Ajouter un professeur
+                        </button>
                     </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prénom</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Spécialité</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="professeurs-table-body">
+                                <tr>
+                                    <td colspan="4" class="text-center py-4">
+                                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            // Initialiser la table des professeurs
+            this.professeurTable = new ProfesseurTable('professeurs-table-body');
+            
+            // Charger les données
+            console.log('Chargement des professeurs...');
+            const professeurs = await this.professeurService.getProfesseurs();
+            console.log('Professeurs reçus:', professeurs);
+
+            if (this.professeurTable && professeurs) {
+                this.professeurTable.render(professeurs);
+            } else {
+                throw new Error('Erreur lors du rendu des professeurs');
+            }
+
+            // Ajouter l'écouteur pour le bouton d'ajout
+            const addProfesseurBtn = document.getElementById('addProfesseurBtn');
+            if (addProfesseurBtn) {
+                addProfesseurBtn.addEventListener('click', () => {
+                    // Implémenter l'ouverture du modal d'ajout
+                    console.log('Ouvrir le modal d\'ajout de professeur');
+                });
+            }
+
+        } catch (error) {
+            console.error('Erreur lors du chargement des professeurs:', error);
+            this.toast.show('Erreur lors du chargement des professeurs: ' + error.message, 'error');
+            
+            const tableBody = document.getElementById('professeurs-table-body');
+            if (tableBody) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center py-4 text-red-500">
+                            <i class="fas fa-exclamation-circle text-4xl mb-2"></i>
+                            <p>Erreur lors du chargement des professeurs</p>
+                            <p class="text-sm">${error.message}</p>
+                        </td>
+                    </tr>
                 `;
             }
         }
     }
 
-    async loadProfesseursPage() {
-        const contentContainer = document.getElementById('content');
-        contentContainer.innerHTML = `
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <div class="mb-4 flex justify-between items-center">
-                    <h2 class="text-xl font-semibold">Liste des Professeurs</h2>
-                    <button class="btn-primary" onclick="this.openProfesseurModal()">
-                        <i class="fas fa-plus mr-2"></i>Ajouter un professeur
-                    </button>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full">
-                        <thead>
-                            <tr class="bg-gray-50">
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prénom</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Spécialité</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="professeurs-table-body">
-                            <tr>
-                                <td colspan="4" class="text-center py-4">
-                                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-        
-        try {
-            const professeurs = await this.professeurService.getProfesseurs();
-            this.professeurTable.render(professeurs);
-        } catch (error) {
-            this.toast.show('Erreur lors du chargement des professeurs', 'error');
-        }
-    }
-
     async loadEtudiantsPage() {
-        const contentContainer = document.getElementById('content');
-        contentContainer.innerHTML = `
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <div class="mb-4 flex justify-between items-center">
-                    <h2 class="text-xl font-semibold">Liste des Étudiants</h2>
-                    <button class="btn-primary" onclick="this.openEtudiantModal()">
-                        <i class="fas fa-plus mr-2"></i>Ajouter un étudiant
-                    </button>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full">
-                        <thead>
-                            <tr class="bg-gray-50">
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Matricule</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom Complet</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Classe</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="etudiants-table-body">
-                            <tr>
-                                <td colspan="4" class="text-center py-4">
-                                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-        
         try {
+            const contentContainer = document.getElementById('content');
+            if (!contentContainer) {
+                throw new Error('Container de contenu non trouvé');
+            }
+
+            // Afficher le loader
+            contentContainer.innerHTML = `
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="mb-4 flex justify-between items-center">
+                        <h2 class="text-xl font-semibold">Liste des Étudiants</h2>
+                        <button class="btn-primary" id="addEtudiantBtn">
+                            <i class="fas fa-plus mr-2"></i>Ajouter un étudiant
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Matricule</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom Complet</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Classe</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="etudiants-table-body">
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            // Initialiser la table des étudiants
+            this.etudiantTable = new EtudiantTable('etudiants-table-body');
+            
+            // Charger les données
+            console.log('Chargement des étudiants...');
             const etudiants = await this.etudiantService.getEtudiants();
-            this.etudiantTable.render(etudiants);
+            console.log('Étudiants reçus:', etudiants);
+
+            if (this.etudiantTable && etudiants) {
+                this.etudiantTable.render(etudiants);
+            } else {
+                throw new Error('Erreur lors du rendu des étudiants');
+            }
+
+            // Ajouter l'écouteur pour le bouton d'ajout
+            const addEtudiantBtn = document.getElementById('addEtudiantBtn');
+            if (addEtudiantBtn) {
+                addEtudiantBtn.addEventListener('click', () => {
+                    // Implémenter l'ouverture du modal d'ajout
+                    console.log('Ouvrir le modal d\'ajout d\'étudiant');
+                });
+            }
+
         } catch (error) {
-            this.toast.show('Erreur lors du chargement des étudiants', 'error');
+            console.error('Erreur lors du chargement des étudiants:', error);
+            this.toast.show('Erreur lors du chargement des étudiants: ' + error.message, 'error');
+            
+            const tableBody = document.getElementById('etudiants-table-body');
+            if (tableBody) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-red-500">
+                            <i class="fas fa-exclamation-circle text-4xl mb-2"></i>
+                            <p>Erreur lors du chargement des étudiants</p>
+                            <p class="text-sm">${error.message}</p>
+                        </td>
+                    </tr>
+                `;
+            }
         }
     }
 
     async loadSeancesPage() {
-        const contentContainer = document.getElementById('content');
-        contentContainer.innerHTML = `
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <div class="mb-4 flex justify-between items-center">
-                    <h2 class="text-xl font-semibold">Liste des Séances</h2>
-                    <button class="btn-primary" onclick="this.openSeanceModal()">
-                        <i class="fas fa-plus mr-2"></i>Ajouter une séance
-                    </button>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full">
-                        <thead>
-                            <tr class="bg-gray-50">
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cours</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Horaires</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Professeur</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="seances-table-body">
-                            <tr>
-                                <td colspan="5" class="text-center py-4">
-                                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-        
         try {
+            const contentContainer = document.getElementById('content');
+            if (!contentContainer) {
+                throw new Error('Container de contenu non trouvé');
+            }
+
+            // Afficher le loader
+            contentContainer.innerHTML = `
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="mb-4 flex justify-between items-center">
+                        <h2 class="text-xl font-semibold">Liste des Séances</h2>
+                        <button class="btn-primary" id="addSeanceBtn">
+                            <i class="fas fa-plus mr-2"></i>Ajouter une séance
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cours</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Horaires</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Professeur</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="seances-table-body">
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            // Initialiser la table des séances
+            this.seanceTable = new SeanceTable('seances-table-body');
+            
+            // Charger les données avec un délai pour voir le loader
+            console.log('Chargement des séances...');
             const seances = await this.seanceService.getSeances();
-            this.seanceTable.render(seances);
+            console.log('Séances reçues:', seances);
+
+            if (this.seanceTable && seances) {
+                this.seanceTable.render(seances);
+            } else {
+                throw new Error('Erreur lors du rendu des séances');
+            }
+
+            // Ajouter l'écouteur pour le bouton d'ajout
+            const addSeanceBtn = document.getElementById('addSeanceBtn');
+            if (addSeanceBtn) {
+                addSeanceBtn.addEventListener('click', () => {
+                    // Implémenter l'ouverture du modal d'ajout
+                    console.log('Ouvrir le modal d\'ajout de séance');
+                });
+            }
+
         } catch (error) {
-            this.toast.show('Erreur lors du chargement des séances', 'error');
+            console.error('Erreur lors du chargement des séances:', error);
+            this.toast.show('Erreur lors du chargement des séances: ' + error.message, 'error');
+            
+            const tableBody = document.getElementById('seances-table-body');
+            if (tableBody) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-red-500">
+                            <i class="fas fa-exclamation-circle text-4xl mb-2"></i>
+                            <p>Erreur lors du chargement des séances</p>
+                            <p class="text-sm">${error.message}</p>
+                        </td>
+                    </tr>
+                `;
+            }
         }
     }
 
     async loadAbsencesPage() {
-        const contentContainer = document.getElementById('content');
-        contentContainer.innerHTML = `
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <div class="mb-4 flex justify-between items-center">
-                    <h2 class="text-xl font-semibold">Gestion des Présences</h2>
-                    <button class="btn-primary" onclick="this.openAbsenceModal()">
-                        <i class="fas fa-plus mr-2"></i>Marquer une absence
-                    </button>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full">
-                        <thead>
-                            <tr class="bg-gray-50">
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Étudiant</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cours</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="absences-table-body">
-                            <tr>
-                                <td colspan="5" class="text-center py-4">
-                                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-        
         try {
+            const contentContainer = document.getElementById('content');
+            if (!contentContainer) {
+                throw new Error('Container de contenu non trouvé');
+            }
+
+            contentContainer.innerHTML = `
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="mb-4 flex justify-between items-center">
+                        <h2 class="text-xl font-semibold">Gestion des Présences</h2>
+                        <button class="btn-primary" id="addAbsenceBtn">
+                            <i class="fas fa-plus mr-2"></i>Marquer une absence
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Étudiant</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cours</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="absences-table-body">
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            // Initialiser la table des absences
+            this.absenceTable = new AbsenceTable('absences-table-body');
+            
+            // Charger les données
             const absences = await this.absenceService.getAbsences();
-            this.absenceTable.render(absences);
+            if (this.absenceTable && absences) {
+                this.absenceTable.render(absences);
+            }
+
         } catch (error) {
-            this.toast.show('Erreur lors du chargement des absences', 'error');
+            console.error('Erreur lors du chargement des absences:', error);
+            this.toast.show('Erreur lors du chargement des absences: ' + error.message, 'error');
         }
     }
 
@@ -638,7 +942,7 @@ export class App {
         
         try {
             // Formater la date d'aujourd'hui au format YYYY-MM-DD
-            const today = new Date().toISOString().split('T')[0];
+            const today = dateFormatter.toInputDate(new Date());
             
             // Charger les données depuis l'API
             const [etudiants, professeurs, coursAujourdhui, absences] = await Promise.all([
@@ -646,7 +950,10 @@ export class App {
                 this.professeurService.getProfesseurs(),
                 this.coursService.getCoursParDate(today),
                 this.absenceService.getAbsences()
-            ]);
+            ]).catch(error => {
+                console.error('Erreur lors du chargement des données:', error);
+                return [[], [], [], []]; // Retourner des tableaux vides en cas d'erreur
+            });
 
             contentContainer.innerHTML = `
                 <div class="space-y-6">
@@ -728,7 +1035,7 @@ export class App {
 
             // Afficher les cours du jour
             const coursJourTable = document.getElementById('coursJourTable');
-            if (coursAujourdhui.length > 0) {
+            if (coursAujourdhui && coursAujourdhui.length > 0) {
                 coursJourTable.innerHTML = `
                     <table class="min-w-full">
                         <thead>
@@ -818,17 +1125,19 @@ export class App {
 
         } catch (error) {
             console.error('Erreur lors du chargement du dashboard:', error);
-            contentContainer.innerHTML = `
-                <div class="bg-red-50 text-red-600 p-4 rounded-lg">
-                    <div class="flex items-center">
-                        <i class="fas fa-exclamation-circle mr-2"></i>
-                        <span>Une erreur est survenue lors du chargement du dashboard</span>
+            if (contentContainer) {
+                contentContainer.innerHTML = `
+                    <div class="bg-red-50 text-red-600 p-4 rounded-lg">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-circle mr-2"></i>
+                            <span>Une erreur est survenue lors du chargement du dashboard</span>
+                        </div>
+                        <div class="mt-2 text-sm">
+                            ${error.message}
+                        </div>
                     </div>
-                    <div class="mt-2 text-sm">
-                        ${error.message}
-                    </div>
-                </div>
-            `;
+                `;
+            }
         }
     }
 
@@ -838,6 +1147,7 @@ export class App {
         this.etudiantService = new EtudiantService();
         this.seanceService = new SeanceService();
         this.absenceService = new AbsenceService();
+        this.classeService = new ClasseService();
     }
 
     async editProfesseur(id) {
@@ -925,6 +1235,66 @@ export class App {
             this.loadAbsencesPage();
         } catch (error) {
             this.toast.show('Erreur lors de la suppression de l\'absence', 'error');
+        }
+    }
+
+    // Nouvelle méthode pour réinitialiser les composants
+    resetComponents() {
+        // Réinitialiser les tables
+        this.coursTable = null;
+        this.professeurTable = null;
+        this.etudiantTable = null;
+        this.seanceTable = null;
+        this.absenceTable = null;
+        
+        // Réinitialiser les listes
+        this.professeurList = null;
+        this.etudiantList = null;
+        this.seanceList = null;
+        this.absenceList = null;
+    }
+
+    checkComponentsState() {
+        console.log('État des composants:', {
+            sidebar: !!this.sidebar,
+            topbar: !!this.topbar,
+            header: !!this.header,
+            filters: !!this.filters,
+            coursTable: !!this.coursTable,
+            professeurTable: !!this.professeurTable,
+            etudiantTable: !!this.etudiantTable,
+            seanceTable: !!this.seanceTable,
+            absenceTable: !!this.absenceTable
+        });
+    }
+
+    logout() {
+        this.authService.logout();
+    }
+
+    checkPermission(permission) {
+        if (!this.authService.hasPermission(permission)) {
+            this.toast.show('Vous n\'avez pas les permissions nécessaires', 'error');
+            return false;
+        }
+        return true;
+    }
+
+    updateUIBasedOnPermissions() {
+        const user = this.authService.getUser();
+        
+        // Cacher/Montrer les éléments selon le rôle
+        document.querySelectorAll('[data-requires-role]').forEach(element => {
+            const requiredRole = element.dataset.requiresRole;
+            if (!this.authService.hasRole(requiredRole)) {
+                element.style.display = 'none';
+            }
+        });
+
+        // Mettre à jour le nom de l'utilisateur dans la topbar
+        const userNameElement = document.getElementById('userName');
+        if (userNameElement) {
+            userNameElement.textContent = `${user.prenom} ${user.nom}`;
         }
     }
 } 
