@@ -4,10 +4,10 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-sonatel-600 text-white px-4 py-2 rounded-lg hover:bg-sonatel-700;
+    @apply bg-[#C9151B] text-white px-4 py-2 rounded-lg hover:bg-[#E67d23];
   }
   
   .input-primary {
-    @apply border p-2 rounded-lg focus:ring-2 focus:ring-sonatel-500 focus:border-sonatel-500;
+    @apply border p-2 rounded-lg focus:ring-2 focus:ring-[#C9151B] focus:border-[#C9151B];
   }
 } 

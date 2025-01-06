@@ -94,7 +94,7 @@ export class CoursModal {
                                 Annuler
                             </button>
                             <button type="submit"
-                                class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md">
+                                class="btn-primary">
                                 ${this.isEdit ? 'Modifier' : 'Ajouter'}
                             </button>
                         </div>
