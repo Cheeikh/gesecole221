@@ -106,19 +106,30 @@ export class TopBar {
         const searchInput = this.container.querySelector('input[type="text"]');
         const menuBurger = this.container.querySelector('#menuBurger');
         const sidebar = document.getElementById('sidebar');
+        const miniSidebar = document.getElementById('miniSidebar');
+        const miniSidebarSpace = document.getElementById('miniSidebarSpace');
         
         // Gestion du menu burger
         menuBurger.addEventListener('click', () => {
             this.isSidebarOpen = !this.isSidebarOpen;
+            const sidebar = document.getElementById('sidebar');
+            const miniSidebar = document.getElementById('miniSidebar');
+            const miniSidebarSpace = document.getElementById('miniSidebarSpace');
             
             if (window.innerWidth >= 768) {
                 // Sur desktop
                 if (this.isSidebarOpen) {
                     sidebar.classList.remove('w-0', 'overflow-hidden');
                     sidebar.classList.add('w-64');
+                    miniSidebar.classList.add('translate-x-[-100%]');
+                    miniSidebarSpace.classList.remove('w-16');
+                    miniSidebarSpace.classList.add('w-0');
                 } else {
                     sidebar.classList.remove('w-64');
                     sidebar.classList.add('w-0', 'overflow-hidden');
+                    miniSidebar.classList.remove('translate-x-[-100%]');
+                    miniSidebarSpace.classList.remove('w-0');
+                    miniSidebarSpace.classList.add('w-16');
                 }
             } else {
                 // Sur mobile
@@ -139,13 +150,19 @@ export class TopBar {
         window.addEventListener('resize', () => {
             if (window.innerWidth >= 768) {
                 const overlay = document.getElementById('sidebarOverlay');
+                const miniSidebarSpace = document.getElementById('miniSidebarSpace');
                 if (overlay) {
                     overlay.remove();
                 }
-                // Rétablir l'état par défaut sur desktop
+                
                 if (this.isSidebarOpen) {
                     sidebar.classList.remove('w-0', 'overflow-hidden', '-translate-x-full');
                     sidebar.classList.add('w-64');
+                    miniSidebarSpace.classList.remove('w-16');
+                    miniSidebarSpace.classList.add('w-0');
+                } else {
+                    miniSidebarSpace.classList.remove('w-0');
+                    miniSidebarSpace.classList.add('w-16');
                 }
             }
         });
