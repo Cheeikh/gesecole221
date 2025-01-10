@@ -1,43 +1,86 @@
-import { ApiClient, API_CONFIG } from '../api/config.js';
+import { dataProvider } from '../providers/DataProvider.js';
 
 export class ProfesseurService {
     async getProfesseurs(params = {}) {
         try {
-            const professeurs = await ApiClient.get(API_CONFIG.ENDPOINTS.PROFESSEURS, params);
+            const { page = 1, limit = 10, q, specialite, ...otherParams } = params;
             
-            // Enrichir les données des professeurs avec leurs cours
-            const professeursEnrichis = await Promise.all(professeurs.map(async (professeur) => {
-                const cours = await ApiClient.get(`${API_CONFIG.ENDPOINTS.PROFESSEURS}/${professeur.id}/cours`);
-                return {
-                    ...professeur,
-                    cours
-                };
-            }));
+            let queryParams = {
+                _page: page,
+                _limit: limit,
+                ...otherParams
+            };
+
+            // Ajouter les filtres spécifiques
+            if (q) queryParams.q = q;
+            if (specialite) queryParams.specialite = specialite;
+
+            const response = await dataProvider.get('/professeurs', queryParams);
             
-            return professeursEnrichis;
+            return {
+                professeurs: response.data,
+                total: response.total,
+                currentPage: page,
+                totalPages: Math.ceil(response.total / limit)
+            };
         } catch (error) {
-            console.error('Erreur lors du chargement des professeurs:', error);
+            console.error('Erreur dans getProfesseurs:', error);
             throw error;
         }
     }
 
-    async getProfesseurParSpecialite(specialite) {
-        return ApiClient.get(`${API_CONFIG.ENDPOINTS.PROFESSEURS}/specialite/${specialite}`);
-    }
-
-    async getProfesseursActifs() {
-        return ApiClient.get(`${API_CONFIG.ENDPOINTS.PROFESSEURS}/statut/actif`);
+    async getProfesseurById(id) {
+        try {
+            const response = await dataProvider.get(`/professeurs/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error('Erreur dans getProfesseurById:', error);
+            throw error;
+        }
     }
 
     async createProfesseur(professeurData) {
-        return ApiClient.post(API_CONFIG.ENDPOINTS.PROFESSEURS, professeurData);
+        return dataProvider.create('/professeurs', professeurData);
     }
 
     async updateProfesseur(id, professeurData) {
-        return ApiClient.put(`${API_CONFIG.ENDPOINTS.PROFESSEURS}/${id}`, professeurData);
+        return dataProvider.update('/professeurs', id, professeurData);
     }
 
     async deleteProfesseur(id) {
-        return ApiClient.delete(`${API_CONFIG.ENDPOINTS.PROFESSEURS}/${id}`);
+        return dataProvider.delete('/professeurs', id);
+    }
+
+    async getProfesseurParSpecialite(specialite) {
+        return dataProvider.get(`/professeurs/specialite/${specialite}`);
+    }
+
+    async getProfesseursActifs() {
+        return dataProvider.get(`/professeurs/statut/actif`);
+    }
+
+    async getAllSpecialites() {
+        try {
+            const response = await dataProvider.get('/professeurs');
+            const professeurs = response.data;
+            // Extraire les spécialités uniques
+            const specialites = [...new Set(professeurs.map(p => p.specialite).filter(Boolean))];
+            return specialites;
+        } catch (error) {
+            console.error('Erreur dans getAllSpecialites:', error);
+            return [];
+        }
+    }
+
+    async getProfesseursWithCours() {
+        try {
+            const response = await dataProvider.get('/professeurs', {
+                _embed: ['cours']
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Erreur dans getProfesseursWithCours:', error);
+            throw error;
+        }
     }
 } 

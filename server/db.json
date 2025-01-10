@@ -6,7 +6,9 @@
       "password": "admin123",
       "nom": "Admin",
       "prenom": "System",
-      "roles": ["admin"],
+      "roles": [
+        "admin"
+      ],
       "statut": "actif"
     },
     {
@@ -15,7 +17,9 @@
       "password": "prof123",
       "nom": "Diop",
       "prenom": "Amadou",
-      "roles": ["professeur"],
+      "roles": [
+        "professeur"
+      ],
       "statut": "actif",
       "professeurId": 1
     },
@@ -25,7 +29,9 @@
       "password": "etudiant123",
       "nom": "Diallo",
       "prenom": "Fatou",
-      "roles": ["etudiant"],
+      "roles": [
+        "etudiant"
+      ],
       "statut": "actif",
       "etudiantId": 1
     }
@@ -62,20 +68,12 @@
     {
       "id": 1,
       "nom": "Développement Web - Niveau 1",
-      "niveauId": 1,
-      "professeurPrincipalId": 1,
-      "semestreId": 1,
-      "capacite": 30,
-      "statut": "actif"
+      "description": "Formation en développement web"
     },
     {
       "id": 2,
       "nom": "Développement Web - Niveau 2",
-      "niveauId": 2,
-      "professeurPrincipalId": 2,
-      "semestreId": 1,
-      "capacite": 25,
-      "statut": "actif"
+      "description": "Formation avancée en développement web"
     }
   ],
   "professeurs": [
@@ -89,7 +87,11 @@
       "telephone": "+221777777777",
       "photo": "/assets/images/professors/prof1.jpg",
       "statut": "actif",
-      "coursAssignes": [1, 2, 3],
+      "coursAssignes": [
+        1,
+        2,
+        3
+      ],
       "userId": 2
     },
     {
@@ -102,7 +104,10 @@
       "telephone": "+221766666666",
       "photo": "/assets/images/professors/prof2.jpg",
       "statut": "actif",
-      "coursAssignes": [4, 5]
+      "coursAssignes": [
+        4,
+        5
+      ]
     }
   ],
   "etudiants": [
@@ -118,7 +123,10 @@
       "photo": "/assets/images/students/student1.jpg",
       "classeId": 1,
       "statut": "actif",
-      "absences": [1, 2],
+      "absences": [
+        1,
+        2
+      ],
       "userId": 3
     },
     {
@@ -133,18 +141,24 @@
       "photo": "/assets/images/students/student2.jpg",
       "classeId": 1,
       "statut": "actif",
-      "absences": [3]
+      "absences": [
+        3
+      ]
     }
   ],
   "cours": [
     {
-      "libelle": "JavaScript AvancéE",
+      "id": 1,
+      "libelle": "JavaScript Avancé",
       "professeurId": 1,
       "classeId": 1,
+      "classe": {
+        "id": 1,
+        "nom": "Développement Web - Niveau 1"
+      },
       "heuresTotal": 30,
       "coefficient": 3,
       "description": "Cours avancé de JavaScript et ses frameworks modernes",
-      "id": 1,
       "statut": "planifié",
       "dateCours": "2024-12-25",
       "heureDebut": "08:00",
@@ -155,7 +169,6 @@
       "id": 2,
       "libelle": "UML et Conception",
       "description": "Introduction à la modélisation UML",
-      "semestreId": 1,
       "professeurId": 2,
       "classeId": 1,
       "heuresTotal": 20,
@@ -163,7 +176,148 @@
       "statut": "planifié",
       "dateCours": "2024-03-16",
       "heureDebut": "14:00",
-      "heureFin": "18:00"
+      "heureFin": "18:00",
+      "salle": "Salle 102"
+    },
+    {
+      "id": 3,
+      "libelle": "Base de données SQL",
+      "description": "Conception et optimisation des bases de données relationnelles",
+      "professeurId": 1,
+      "classeId": 2,
+      "heuresTotal": 25,
+      "coefficient": 3,
+      "statut": "en_cours",
+      "dateCours": "2024-03-20",
+      "heureDebut": "09:00",
+      "heureFin": "12:00",
+      "salle": "Salle 201"
+    },
+    {
+      "id": 4,
+      "libelle": "Développement Mobile",
+      "description": "Création d'applications mobiles avec React Native",
+      "professeurId": 2,
+      "classeId": 2,
+      "heuresTotal": 35,
+      "coefficient": 3,
+      "statut": "planifié",
+      "dateCours": "2024-04-05",
+      "heureDebut": "13:00",
+      "heureFin": "17:00",
+      "salle": "Salle 103"
+    },
+    {
+      "id": 5,
+      "libelle": "Architecture Logicielle",
+      "description": "Patterns de conception et bonnes pratiques",
+      "professeurId": 1,
+      "classeId": 1,
+      "heuresTotal": 28,
+      "coefficient": 3,
+      "statut": "planifié",
+      "dateCours": "2024-04-10",
+      "heureDebut": "08:00",
+      "heureFin": "11:00",
+      "salle": "Salle 201"
+    },
+    {
+      "id": 6,
+      "libelle": "DevOps et CI/CD",
+      "description": "Introduction aux pratiques DevOps",
+      "professeurId": 2,
+      "classeId": 2,
+      "heuresTotal": 22,
+      "coefficient": 2,
+      "statut": "planifié",
+      "dateCours": "2024-04-15",
+      "heureDebut": "14:00",
+      "heureFin": "17:00",
+      "salle": "Salle 102"
+    },
+    {
+      "id": 7,
+      "libelle": "Sécurité Web",
+      "description": "Sécurisation des applications web",
+      "professeurId": 1,
+      "classeId": 1,
+      "heuresTotal": 24,
+      "coefficient": 3,
+      "statut": "planifié",
+      "dateCours": "2024-04-20",
+      "heureDebut": "09:00",
+      "heureFin": "12:00",
+      "salle": "Salle 103"
+    },
+    {
+      "id": 8,
+      "libelle": "Tests et Qualité Logicielle",
+      "description": "Méthodologies de test et assurance qualité",
+      "professeurId": 2,
+      "classeId": 2,
+      "heuresTotal": 20,
+      "coefficient": 2,
+      "statut": "planifié",
+      "dateCours": "2024-04-25",
+      "heureDebut": "13:00",
+      "heureFin": "16:00",
+      "salle": "Salle 201"
+    },
+    {
+      "id": 9,
+      "libelle": "Cloud Computing",
+      "description": "Introduction aux services cloud AWS",
+      "professeurId": 1,
+      "classeId": 1,
+      "heuresTotal": 26,
+      "coefficient": 3,
+      "statut": "planifié",
+      "dateCours": "2024-05-02",
+      "heureDebut": "08:00",
+      "heureFin": "11:00",
+      "salle": "Salle 102"
+    },
+    {
+      "id": 10,
+      "libelle": "Gestion de Projet Agile",
+      "description": "Méthodologies agiles et Scrum",
+      "professeurId": 2,
+      "classeId": 2,
+      "heuresTotal": 18,
+      "coefficient": 2,
+      "statut": "planifié",
+      "dateCours": "2024-05-07",
+      "heureDebut": "14:00",
+      "heureFin": "17:00",
+      "salle": "Salle 103"
+    },
+    {
+      "id": 11,
+      "libelle": "Intelligence Artificielle",
+      "description": "Introduction au Machine Learning",
+      "professeurId": 1,
+      "classeId": 1,
+      "heuresTotal": 32,
+      "coefficient": 3,
+      "statut": "planifié",
+      "dateCours": "2024-05-12",
+      "heureDebut": "09:00",
+      "heureFin": "12:00",
+      "salle": "Salle 201"
+    },
+    {
+      "id": 12,
+      "libelle": "Blockchain",
+      "description": "Développement d'applications décentralisées",
+      "professeurId": 2,
+      "classeId": 2,
+      "heuresTotal": 24,
+      "coefficient": 2,
+      "statut": "planifié",
+      "dateCours": "2024-05-17",
+      "heureDebut": "13:00",
+      "heureFin": "16:00",
+      "salle": "Salle 102"
     }
   ],
   "seances": [
@@ -205,6 +359,21 @@
         "id": 1,
         "libelle": "JavaScript Avancé",
         "professeurId": 1
+      }
+    },
+    {
+      "id": 3,
+      "coursId": 2,
+      "date": "2024-02-25",
+      "heureDebut": "14:00",
+      "heureFin": "16:00",
+      "salle": "Salle 102",
+      "statut": "planifié",
+      "absences": [],
+      "cours": {
+        "id": 2,
+        "libelle": "UML et Conception",
+        "professeurId": 2
       }
     }
   ],

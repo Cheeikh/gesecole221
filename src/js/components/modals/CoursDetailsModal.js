@@ -6,7 +6,8 @@ export class CoursDetailsModal {
     async render(coursId) {
         try {
             const cours = await app.coursService.getCoursById(coursId);
-            const seances = await app.seanceService.getSeancesByCours(coursId);
+            const seancesResponse = await app.seanceService.getSeancesByCours(coursId);
+            const seances = seancesResponse.data || [];
 
             const modalHtml = `
                 <div id="coursDetailsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">

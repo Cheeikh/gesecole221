@@ -5,25 +5,39 @@ export class Sidebar {
         this.menuItems = [
             { id: 'dashboard', text: 'Dashboard', icon: 'home' },
             { id: 'cours', text: 'Gestion des Cours', icon: 'graduation-cap' },
+            { id: 'classes', text: 'Gestion des Classes', icon: 'school' },
             { id: 'seances', text: 'Gestion Séances', icon: 'clock' },
             { id: 'professeurs', text: 'Gestion Professeurs', icon: 'chalkboard-teacher' },
             { id: 'etudiants', text: 'Gestion Étudiants', icon: 'user-graduate' },
             { id: 'absences', text: 'Gestion Présences', icon: 'calendar-check' }
         ];
+        this.isMobile = window.innerWidth < 768;
+        this.isExpanded = window.innerWidth >= 768;
     }
 
     render() {
+        const baseClasses = `
+            fixed md:static left-0 top-0 h-screen bg-white shadow-lg z-50
+            w-64 transition-transform duration-300
+        `;
+
+        const transformClass = this.isMobile ? '-translate-x-full' : '';
+
+        this.container.className = `${baseClasses} ${transformClass}`;
+
         this.container.innerHTML = `
-            <div class="p-6 h-full transition-all duration-300">
-                <div class="flex justify-center items-center mb-8">
-                    <img src="src/assets/images/logo.png" alt="Sonatel Academy" class="h-24 transition-all duration-300">
-                    <button id="closeSidebar" class="md:hidden text-gray-500 hover:text-gray-700">
-                        <i class="fas fa-times"></i>
-                    </button>
+            <div class="flex flex-col h-full">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-8">
+                        <img src="src/assets/images/logo.png" alt="Sonatel Academy" class="h-16 md:h-24">
+                        <button id="closeSidebar" class="md:hidden text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <nav class="space-y-2">
+                        ${this.menuItems.map(item => this.renderMenuItem(item)).join('')}
+                    </nav>
                 </div>
-                <nav class="space-y-2">
-                    ${this.menuItems.map(item => this.renderMenuItem(item)).join('')}
-                </nav>
             </div>
         `;
 
@@ -33,7 +47,7 @@ export class Sidebar {
             this.miniSidebar.className = `
                 fixed left-0 top-0 w-16 bg-white shadow-lg h-screen 
                 hidden md:flex flex-col items-center py-6 
-                transition-all duration-300 translate-x-[-100%] z-20
+                transition-transform duration-300 translate-x-[-100%] z-20
             `;
             this.miniSidebar.innerHTML = `
                 <div class="mb-8 flex justify-center items-center">
@@ -96,6 +110,10 @@ export class Sidebar {
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
                 this.container.classList.add('-translate-x-full');
+                const overlay = document.getElementById('sidebarOverlay');
+                if (overlay) {
+                    overlay.remove();
+                }
             });
         }
 
@@ -103,7 +121,7 @@ export class Sidebar {
             const element = this.container.querySelector(`[data-page="${item.id}"]`);
             if (element) {
                 element.addEventListener('click', () => {
-                    this.setActivePage(item.id);
+                    this.setActivePage(item.id, false);
                 });
             }
         });
@@ -113,19 +131,32 @@ export class Sidebar {
                 const element = this.miniSidebar.querySelector(`[data-mini-page="${item.id}"]`);
                 if (element) {
                     element.addEventListener('click', () => {
-                        this.setActivePage(item.id);
+                        this.setActivePage(item.id, true);
                     });
                 }
             });
         }
+
+        window.addEventListener('resize', () => {
+            const wasDesktop = !this.isMobile;
+            this.isMobile = window.innerWidth < 768;
+            
+            if (!wasDesktop && !this.isMobile) {
+                this.isExpanded = true;
+            }
+            
+            this.render();
+        });
     }
 
-    setActivePage(pageId) {
+    setActivePage(pageId, fromMiniSidebar = false) {
         if (this.currentPage === pageId) return;
         
         this.currentPage = pageId;
         
-        this.render();
+        if (!fromMiniSidebar || this.isMobile) {
+            this.render();
+        }
         
         if (this.miniSidebar) {
             const allMiniItems = this.miniSidebar.querySelectorAll('[data-mini-page]');
@@ -141,20 +172,25 @@ export class Sidebar {
             });
         }
         
-        if (this.onPageChange) {
-            this.onPageChange(pageId);
+        if (this.onPageChangeCallback) {
+            this.onPageChangeCallback(pageId);
         }
         
-        if (window.innerWidth < 768) {
+        if (this.isMobile) {
             this.container.classList.add('-translate-x-full');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (overlay) {
+                overlay.remove();
+            }
         }
     }
 
     onPageChange(callback) {
-        this.onPageChange = callback;
+        this.onPageChangeCallback = callback;
     }
 
     toggleSidebar(isOpen) {
+        this.isExpanded = isOpen;
         if (window.innerWidth >= 768) {
             if (isOpen) {
                 this.container.classList.remove('w-0', 'overflow-hidden');

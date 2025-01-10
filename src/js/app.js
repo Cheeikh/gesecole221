@@ -25,36 +25,66 @@ import { AbsenceTable } from './components/AbsenceTable.js';
 import { CoursModal } from './components/modals/CoursModal.js';
 import { CoursDetails } from './components/CoursDetails.js';
 import { CoursDetailsModal } from './components/modals/CoursDetailsModal.js';
+import { SeanceDetailsModal } from './components/modals/SeanceDetailsModal.js';
+import { SeanceModal } from './components/modals/SeanceModal.js';
+import { ConfirmModal } from './components/ui/ConfirmModal.js';
+import { ProfesseurModal } from './components/modals/ProfesseurModal.js';
+import { ProfesseurDetailsModal } from './components/modals/ProfesseurDetailsModal.js';
+import { EtudiantModal } from './components/modals/EtudiantModal.js';
+import { EtudiantDetailsModal } from './components/modals/EtudiantDetailsModal.js';
+import { AbsenceModal } from './components/modals/AbsenceModal.js';
+import { AbsenceDetailsModal } from './components/modals/AbsenceDetailsModal.js';import { JustificationModal } from './components/modals/JustificationModal.js';
+import { ClasseTable } from './components/ClasseTable.js';
+import { ClasseModal } from './components/modals/ClasseModal.js';
+import { AddEtudiantToClasseModal } from './components/modals/AddEtudiantToClasseModal.js';
+import { ClasseDetailsModal } from './components/modals/ClasseDetailsModal.js';
 
 export class App {
     constructor() {
         try {
             this.authService = new AuthService();
-            
-            // Vérifier l'authentification
-            if (!this.authService.isAuthenticated()) {
-                window.location.href = '/login.html';
-                return;
-            }
-
-            // Initialiser le gestionnaire de toast en premier
             this.toast = new ToastManager();
             
             // Initialiser les services
             this.initializeServices();
-            
+
+            // Créer d'abord la structure du layout
+            document.body.innerHTML = `
+                <div class="flex min-h-screen bg-gray-100">
+                    <!-- Sidebar -->
+                    <div id="sidebar"></div>
+                    
+                    <!-- Mini sidebar spacer -->
+                    <div id="miniSidebarSpace" class="w-0 transition-all duration-500"></div>
+                    
+                    <!-- Main content -->
+                    <div class="flex-1 flex flex-col min-w-0">
+                        <!-- Topbar -->
+                        <div id="topbar"></div>
+                        
+                        <!-- Main container -->
+                        <main class="flex-1 p-4 overflow-x-hidden">
+                            <div id="header"></div>
+                            <div id="filters"></div>
+                            <div id="content" class="mt-4"></div>
+                        </main>
+                    </div>
+                </div>
+            `;
+
             // Initialiser les composants UI
             this.initializeComponents();
             
-            // Charger le dashboard par défaut
+            // Charger le dashboard
             this.loadDashboardPage().catch(error => {
                 console.error('Erreur lors du chargement du dashboard:', error);
                 this.toast.show('Erreur lors du chargement du dashboard', 'error');
             });
             
+            this.classeService = new ClasseService();
+            
         } catch (error) {
-            console.error('Erreur lors de l\'initialisation de l\'application:', error);
-            // Afficher une erreur visuelle
+            console.error('Erreur lors de l\'initialisation:', error);
             document.body.innerHTML = `
                 <div class="fixed inset-0 flex items-center justify-center bg-gray-100">
                     <div class="text-center p-8 bg-white rounded-lg shadow-xl">
@@ -68,6 +98,14 @@ export class App {
                 </div>
             `;
         }
+    }
+
+    checkPermission(permission) {
+        if (!this.authService.hasPermission(permission)) {
+            this.toast.show('Vous n\'avez pas les permissions nécessaires', 'error');
+            return false;
+        }
+        return true;
     }
 
     initializeComponents() {
@@ -228,20 +266,25 @@ export class App {
 
         // Setup Header callbacks
         if (this.header) {
-            this.header.onExport(() => {
-                this.exportData();
-            });
+            this.header.onExport(() => this.exportData());
+            this.header.onImport(() => this.importData());
+            this.header.onDownloadReport(() => this.downloadReport());
+            this.header.onPeriodChange((period) => this.changePeriod(period));
+        }
 
-            this.header.onImport(() => {
-                this.importData();
-            });
-
-            this.header.onDownloadReport(() => {
-                this.downloadReport();
-            });
-
-            this.header.onPeriodChange((period) => {
-                this.changePeriod(period);
+        // Toggle des filtres sur mobile
+        const toggleFiltersBtn = document.getElementById('toggleFilters');
+        const filtersContainer = document.getElementById('filtersContainer');
+        
+        if (toggleFiltersBtn && filtersContainer) {
+            toggleFiltersBtn.addEventListener('click', () => {
+                filtersContainer.classList.toggle('hidden');
+                // Changer l'icône
+                const icon = toggleFiltersBtn.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-filter');
+                    icon.classList.toggle('fa-times');
+                }
             });
         }
     }
@@ -258,12 +301,23 @@ export class App {
                 statut: statusFilter?.value || ''
             };
 
-            const cours = await this.coursService.getCours(params);
+            // Vérifier si coursTable existe, sinon l'initialiser
+            if (!this.coursTable) {
+                const tableBody = document.getElementById('cours-table-body');
+                if (tableBody) {
+                    this.coursTable = new CoursTable('cours-table-body');
+                } else {
+                    console.error('Élément cours-table-body non trouvé');
+                    return;
+                }
+            }
+
+            const coursResponse = await this.coursService.getCours(params);
             
-            if (this.coursTable && cours) {
-                this.coursTable.render(cours);
+            if (this.coursTable) {
+                await this.coursTable.render(coursResponse);
             } else {
-                console.error('coursTable non initialisé ou données de cours invalides');
+                console.error('coursTable non initialisé');
             }
             
         } catch (error) {
@@ -352,14 +406,26 @@ export class App {
     }
 
     async deleteCours(id) {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer ce cours ?')) return;
+        if (!this.checkPermission('delete_cours')) return;
         
-        try {
-            await this.coursService.deleteCours(id);
-            this.toast.show('Cours supprimé avec succès', 'success');
-            this.loadData();
-        } catch (error) {
-            this.toast.show('Erreur lors de la suppression du cours', 'error');
+        const confirmModal = new ConfirmModal();
+        const confirmed = await confirmModal.render({
+            title: 'Supprimer le cours',
+            message: 'Êtes-vous sûr de vouloir supprimer ce cours ? Cette action est irréversible.',
+            confirmText: 'Supprimer',
+            cancelText: 'Annuler',
+            type: 'danger'
+        });
+        
+        if (confirmed) {
+            try {
+                await this.coursService.deleteCours(id);
+                this.toast.show('Cours supprimé avec succès', 'success');
+                await this.loadCoursData();
+            } catch (error) {
+                console.error('Erreur lors de la suppression du cours:', error);
+                this.toast.show('Erreur lors de la suppression du cours', 'error');
+            }
         }
     }
 
@@ -375,32 +441,21 @@ export class App {
 
     async handlePageChange(pageId) {
         try {
-            // Mettre à jour le titre
-            this.header.setTitle(this.getPageTitle(pageId));
+            // Mettre à jour le titre de la page
+            document.title = this.getPageTitle(pageId);
             
-            // Récupérer le container de contenu
-            const contentContainer = document.getElementById('content');
-            if (!contentContainer) {
-                throw new Error('Container de contenu non trouvé');
-            }
-            
-            // Afficher le loader
-            contentContainer.innerHTML = `
-                <div class="flex justify-center items-center h-64">
-                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#E67D23]"></div>
-                </div>
-            `;
-            
-            // Réinitialiser les composants existants
+            // Réinitialiser les composants
             this.resetComponents();
             
-            // Charger la nouvelle page
             switch (pageId) {
                 case 'dashboard':
                     await this.loadDashboardPage();
                     break;
                 case 'cours':
                     await this.loadCoursPage();
+                    break;
+                case 'classes':  // Ajouter ce cas
+                    await this.loadClassesPage();
                     break;
                 case 'seances':
                     await this.loadSeancesPage();
@@ -415,29 +470,20 @@ export class App {
                     await this.loadAbsencesPage();
                     break;
                 default:
-                    contentContainer.innerHTML = `
-                        <div class="text-center text-gray-500 mt-8">
-                            Page non trouvée
-                        </div>
-                    `;
+                    throw new Error('Page non trouvée');
             }
-
-            // Gérer l'affichage des filtres
-            const filtersContainer = document.getElementById('filters');
-            if (filtersContainer) {
-                filtersContainer.style.display = pageId === 'cours' ? 'block' : 'none';
-            }
-
         } catch (error) {
             console.error('Erreur lors du changement de page:', error);
             this.toast.show('Erreur lors du chargement de la page: ' + error.message, 'error');
         }
     }
 
+    // Mettre à jour aussi la méthode getPageTitle pour inclure les classes
     getPageTitle(pageId) {
         const titles = {
             dashboard: 'Tableau de bord',
             cours: 'Gestion des Cours',
+            classes: 'Gestion des Classes', // Ajouter ce titre
             seances: 'Gestion des Séances',
             professeurs: 'Gestion des Professeurs',
             etudiants: 'Gestion des Étudiants',
@@ -447,7 +493,6 @@ export class App {
     }
 
     async loadCoursPage() {
-        if (!this.checkPermission('view_cours')) return;
         try {
             const contentContainer = document.getElementById('content');
             if (!contentContainer) {
@@ -455,63 +500,79 @@ export class App {
             }
 
             contentContainer.innerHTML = `
-                <div class="bg-white rounded-lg shadow-lg p-6">
+                <div class="bg-white rounded-lg shadow-lg p-4 md:p-6 h-full">
                     <div class="mb-6">
                         <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                            <h2 class="text-xl font-semibold">Liste des Cours</h2>
-                            <div class="flex flex-col md:flex-row gap-4">
-                                <div class="flex gap-2">
-                                    <input type="text" id="searchCours" placeholder="Rechercher un cours..."
-                                        class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                    <select id="filterProfesseur" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <div class="flex justify-between items-center w-full md:w-auto">
+                                <h2 class="text-xl font-semibold">Liste des Cours</h2>
+                                <!-- Bouton pour afficher/masquer les filtres sur mobile -->
+                                <button id="toggleFilters" class="md:hidden text-gray-600 hover:text-gray-900">
+                                    <i class="fas fa-filter"></i>
+                                </button>
+                            </div>
+                            
+                            <!-- Conteneur des filtres avec état masqué par défaut sur mobile -->
+                            <div id="filtersContainer" class="hidden md:flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                                <div class="flex flex-wrap gap-2 items-center w-full md:w-auto">
+                                    <input type="text" 
+                                        id="searchCours" 
+                                        placeholder="Rechercher un cours..."
+                                        class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E67D23] focus:ring-opacity-50 text-sm"
+                                    >
+                                    <select id="filterClasse" 
+                                        class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E67D23] focus:ring-opacity-50 text-sm">
+                                        <option value="">Toutes les classes</option>
+                                    </select>
+                                    <select id="filterProfesseur" 
+                                        class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E67D23] focus:ring-opacity-50 text-sm">
                                         <option value="">Tous les professeurs</option>
                                     </select>
-                                    <select id="filterStatut" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <select id="filterStatut" 
+                                        class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E67D23] focus:ring-opacity-50 text-sm">
                                         <option value="">Tous les statuts</option>
                                         <option value="en_cours">En cours</option>
                                         <option value="planifié">Planifié</option>
                                         <option value="terminé">Terminé</option>
                                     </select>
                                 </div>
-                                <button id="addCoursBtn" class="btn-primary">
+                                <button id="addCoursBtn" class="w-full md:w-auto btn-primary whitespace-nowrap">
                                     <i class="fas fa-plus mr-2"></i>Ajouter un cours
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full">
-                            <thead>
-                                <tr class="bg-gray-50">
+                    <div class="overflow-x-auto -mx-4 md:mx-0">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50 hidden md:table-header-group">
+                                <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cours</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Professeur</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Classe</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Coefficient</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="cours-table-body">
+                            <tbody id="cours-table-body" class="bg-white divide-y divide-gray-200">
                                 <tr>
-                                    <td colspan="6" class="text-center py-4">
+                                    <td colspan="7" class="text-center py-4">
                                         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
+                    <div id="pagination-container"></div>
                 </div>
             `;
 
-            // Initialiser la table
+            // Initialiser la table des cours
             this.coursTable = new CoursTable('cours-table-body');
             
             // Charger les données initiales
-            await this.loadCoursData();
-            
-            // Configurer les filtres
-            await this.setupCoursFilters();
+            await this.loadData();
             
             // Configurer les événements
             this.setupCoursEventListeners();
@@ -524,10 +585,23 @@ export class App {
 
     async loadCoursData(filters = {}) {
         try {
-            const cours = await this.coursService.getCours(filters);
-            if (this.coursTable) {
-                this.coursTable.render(cours);
-            }
+            // Récupérer tous les filtres actifs
+            const searchValue = document.getElementById('searchCours')?.value;
+            const classeId = document.getElementById('filterClasse')?.value;
+            const professeurId = document.getElementById('filterProfesseur')?.value;
+            const statut = document.getElementById('filterStatut')?.value;
+
+            // Combiner les filtres existants avec les nouveaux
+            const combinedFilters = {
+                ...filters,
+                ...(searchValue && { q: searchValue }),
+                ...(classeId && { classeId }),
+                ...(professeurId && { professeurId }),
+                ...(statut && { statut })
+            };
+
+            // Appliquer les filtres
+            await this.coursTable.render(combinedFilters);
         } catch (error) {
             console.error('Erreur lors du chargement des cours:', error);
             this.toast.show('Erreur lors du chargement des cours', 'error');
@@ -536,11 +610,22 @@ export class App {
 
     async setupCoursFilters() {
         try {
+            // Charger les classes pour le filtre
+            const classes = await this.classeService.getClasses();
+            const filterClasse = document.getElementById('filterClasse');
+            if (filterClasse && classes) {
+                classes.forEach(classe => {
+                    const option = document.createElement('option');
+                    option.value = classe.id;
+                    option.textContent = classe.nom;
+                    filterClasse.appendChild(option);
+                });
+            }
+
             // Charger les professeurs pour le filtre
             const professeurs = await this.professeurService.getProfesseurs();
             const filterProfesseur = document.getElementById('filterProfesseur');
-            
-            if (filterProfesseur) {
+            if (filterProfesseur && professeurs) {
                 professeurs.forEach(prof => {
                     const option = document.createElement('option');
                     option.value = prof.id;
@@ -550,43 +635,56 @@ export class App {
             }
         } catch (error) {
             console.error('Erreur lors de la configuration des filtres:', error);
+            this.toast.show('Erreur lors du chargement des filtres', 'error');
         }
     }
 
     setupCoursEventListeners() {
+        // Recherche avec debounce
+        const searchInput = document.getElementById('searchCours');
+        if (searchInput) {
+            searchInput.addEventListener('input', this.debounce(() => {
+                this.loadCoursData();
+            }, 300));
+        }
+
+        // Filtre par classe
+        const filterClasse = document.getElementById('filterClasse');
+        if (filterClasse) {
+            filterClasse.addEventListener('change', () => this.loadCoursData());
+        }
+
+        // Filtre par professeur
+        const filterProfesseur = document.getElementById('filterProfesseur');
+        if (filterProfesseur) {
+            filterProfesseur.addEventListener('change', () => this.loadCoursData());
+        }
+
+        // Filtre par statut
+        const filterStatut = document.getElementById('filterStatut');
+        if (filterStatut) {
+            filterStatut.addEventListener('change', () => this.loadCoursData());
+        }
+
         // Bouton d'ajout
         const addBtn = document.getElementById('addCoursBtn');
         if (addBtn) {
             addBtn.addEventListener('click', () => this.openCoursModal());
         }
 
-        // Recherche
-        const searchInput = document.getElementById('searchCours');
-        if (searchInput) {
-            searchInput.addEventListener('input', this.debounce(() => {
-                this.loadCoursData({ q: searchInput.value });
-            }, 300));
-        }
-
-        // Filtres
-        const filterProfesseur = document.getElementById('filterProfesseur');
-        const filterStatut = document.getElementById('filterStatut');
-
-        if (filterProfesseur) {
-            filterProfesseur.addEventListener('change', () => {
-                this.loadCoursData({
-                    professeurId: filterProfesseur.value,
-                    statut: filterStatut.value
-                });
-            });
-        }
-
-        if (filterStatut) {
-            filterStatut.addEventListener('change', () => {
-                this.loadCoursData({
-                    professeurId: filterProfesseur.value,
-                    statut: filterStatut.value
-                });
+        // Toggle des filtres sur mobile
+        const toggleFiltersBtn = document.getElementById('toggleFilters');
+        const filtersContainer = document.getElementById('filtersContainer');
+        
+        if (toggleFiltersBtn && filtersContainer) {
+            toggleFiltersBtn.addEventListener('click', () => {
+                filtersContainer.classList.toggle('hidden');
+                // Changer l'icône
+                const icon = toggleFiltersBtn.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-filter');
+                    icon.classList.toggle('fa-times');
+                }
             });
         }
     }
@@ -623,263 +721,31 @@ export class App {
         }
     }
 
-    async editCours(id) {
-        if (!this.checkPermission('edit_cours')) return;
-        await this.openCoursModal(id);
+    async editSeance(id) {
+        if (!this.checkPermission('edit_seance')) return;
+        await this.openSeanceModal(id);
     }
 
-    async deleteCours(id) {
-        if (!this.checkPermission('edit_cours')) return;
-        if (!confirm('Êtes-vous sûr de vouloir supprimer ce cours ?')) return;
+    async deleteSeance(id) {
+        if (!this.checkPermission('delete_seance')) return;
         
-        try {
-            await this.coursService.deleteCours(id);
-            this.toast.show('Cours supprimé avec succès', 'success');
-            this.loadCoursData();
-        } catch (error) {
-            console.error('Erreur lors de la suppression du cours:', error);
-            this.toast.show('Erreur lors de la suppression du cours', 'error');
-        }
-    }
-
-    async loadProfesseursPage() {
-        try {
-            const contentContainer = document.getElementById('content');
-            if (!contentContainer) {
-                throw new Error('Container de contenu non trouvé');
-            }
-
-            // Afficher le loader
-            contentContainer.innerHTML = `
-                <div class="bg-white rounded-lg shadow-lg p-6">
-                    <div class="mb-4 flex justify-between items-center">
-                        <h2 class="text-xl font-semibold">Liste des Professeurs</h2>
-                        <button class="btn-primary" id="addProfesseurBtn">
-                            <i class="fas fa-plus mr-2"></i>Ajouter un professeur
-                        </button>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full">
-                            <thead>
-                                <tr class="bg-gray-50">
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prénom</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Spécialité</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="professeurs-table-body">
-                                <tr>
-                                    <td colspan="4" class="text-center py-4">
-                                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-
-            // Initialiser la table des professeurs
-            this.professeurTable = new ProfesseurTable('professeurs-table-body');
-            
-            // Charger les données
-            console.log('Chargement des professeurs...');
-            const professeurs = await this.professeurService.getProfesseurs();
-            console.log('Professeurs reçus:', professeurs);
-
-            if (this.professeurTable && professeurs) {
-                this.professeurTable.render(professeurs);
-            } else {
-                throw new Error('Erreur lors du rendu des professeurs');
-            }
-
-            // Ajouter l'écouteur pour le bouton d'ajout
-            const addProfesseurBtn = document.getElementById('addProfesseurBtn');
-            if (addProfesseurBtn) {
-                addProfesseurBtn.addEventListener('click', () => {
-                    // Implémenter l'ouverture du modal d'ajout
-                    console.log('Ouvrir le modal d\'ajout de professeur');
-                });
-            }
-
-        } catch (error) {
-            console.error('Erreur lors du chargement des professeurs:', error);
-            this.toast.show('Erreur lors du chargement des professeurs: ' + error.message, 'error');
-            
-            const tableBody = document.getElementById('professeurs-table-body');
-            if (tableBody) {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="4" class="text-center py-4 text-red-500">
-                            <i class="fas fa-exclamation-circle text-4xl mb-2"></i>
-                            <p>Erreur lors du chargement des professeurs</p>
-                            <p class="text-sm">${error.message}</p>
-                        </td>
-                    </tr>
-                `;
-            }
-        }
-    }
-
-    async loadEtudiantsPage() {
-        try {
-            const contentContainer = document.getElementById('content');
-            if (!contentContainer) {
-                throw new Error('Container de contenu non trouvé');
-            }
-
-            // Afficher le loader
-            contentContainer.innerHTML = `
-                <div class="bg-white rounded-lg shadow-lg p-6">
-                    <div class="mb-4 flex justify-between items-center">
-                        <h2 class="text-xl font-semibold">Liste des Étudiants</h2>
-                        <button class="btn-primary" id="addEtudiantBtn">
-                            <i class="fas fa-plus mr-2"></i>Ajouter un étudiant
-                        </button>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full">
-                            <thead>
-                                <tr class="bg-gray-50">
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Matricule</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom Complet</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Classe</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="etudiants-table-body">
-                                <tr>
-                                    <td colspan="5" class="text-center py-4">
-                                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-
-            // Initialiser la table des étudiants
-            this.etudiantTable = new EtudiantTable('etudiants-table-body');
-            
-            // Charger les données
-            console.log('Chargement des étudiants...');
-            const etudiants = await this.etudiantService.getEtudiants();
-            console.log('Étudiants reçus:', etudiants);
-
-            if (this.etudiantTable && etudiants) {
-                this.etudiantTable.render(etudiants);
-            } else {
-                throw new Error('Erreur lors du rendu des étudiants');
-            }
-
-            // Ajouter l'écouteur pour le bouton d'ajout
-            const addEtudiantBtn = document.getElementById('addEtudiantBtn');
-            if (addEtudiantBtn) {
-                addEtudiantBtn.addEventListener('click', () => {
-                    // Implémenter l'ouverture du modal d'ajout
-                    console.log('Ouvrir le modal d\'ajout d\'étudiant');
-                });
-            }
-
-        } catch (error) {
-            console.error('Erreur lors du chargement des étudiants:', error);
-            this.toast.show('Erreur lors du chargement des étudiants: ' + error.message, 'error');
-            
-            const tableBody = document.getElementById('etudiants-table-body');
-            if (tableBody) {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="text-center py-4 text-red-500">
-                            <i class="fas fa-exclamation-circle text-4xl mb-2"></i>
-                            <p>Erreur lors du chargement des étudiants</p>
-                            <p class="text-sm">${error.message}</p>
-                        </td>
-                    </tr>
-                `;
-            }
-        }
-    }
-
-    async loadSeancesPage() {
-        try {
-            const contentContainer = document.getElementById('content');
-            if (!contentContainer) {
-                throw new Error('Container de contenu non trouvé');
-            }
-
-            // Afficher le loader
-            contentContainer.innerHTML = `
-                <div class="bg-white rounded-lg shadow-lg p-6">
-                    <div class="mb-4 flex justify-between items-center">
-                        <h2 class="text-xl font-semibold">Liste des Séances</h2>
-                        <button class="btn-primary" id="addSeanceBtn">
-                            <i class="fas fa-plus mr-2"></i>Ajouter une séance
-                        </button>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full">
-                            <thead>
-                                <tr class="bg-gray-50">
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cours</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Horaires</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Professeur</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="seances-table-body">
-                                <tr>
-                                    <td colspan="5" class="text-center py-4">
-                                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-
-            // Initialiser la table des séances
-            this.seanceTable = new SeanceTable('seances-table-body');
-            
-            // Charger les données avec un délai pour voir le loader
-            console.log('Chargement des séances...');
-            const seances = await this.seanceService.getSeances();
-            console.log('Séances reçues:', seances);
-
-            if (this.seanceTable && seances) {
-                this.seanceTable.render(seances);
-            } else {
-                throw new Error('Erreur lors du rendu des séances');
-            }
-
-            // Ajouter l'écouteur pour le bouton d'ajout
-            const addSeanceBtn = document.getElementById('addSeanceBtn');
-            if (addSeanceBtn) {
-                addSeanceBtn.addEventListener('click', () => {
-                    // Implémenter l'ouverture du modal d'ajout
-                    console.log('Ouvrir le modal d\'ajout de séance');
-                });
-            }
-
-        } catch (error) {
-            console.error('Erreur lors du chargement des séances:', error);
-            this.toast.show('Erreur lors du chargement des séances: ' + error.message, 'error');
-            
-            const tableBody = document.getElementById('seances-table-body');
-            if (tableBody) {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="text-center py-4 text-red-500">
-                            <i class="fas fa-exclamation-circle text-4xl mb-2"></i>
-                            <p>Erreur lors du chargement des séances</p>
-                            <p class="text-sm">${error.message}</p>
-                        </td>
-                    </tr>
-                `;
+        const confirmModal = new ConfirmModal();
+        const confirmed = await confirmModal.render({
+            title: 'Supprimer la séance',
+            message: 'Êtes-vous sûr de vouloir supprimer cette séance ? Cette action est irréversible.',
+            confirmText: 'Supprimer',
+            cancelText: 'Annuler',
+            type: 'danger'
+        });
+        
+        if (confirmed) {
+            try {
+                await this.seanceService.deleteSeance(id);
+                this.toast.show('Séance supprimée avec succès', 'success');
+                await this.loadSeanceData();
+            } catch (error) {
+                console.error('Erreur lors de la suppression de la séance:', error);
+                this.toast.show('Erreur lors de la suppression de la séance', 'error');
             }
         }
     }
@@ -919,42 +785,126 @@ export class App {
                             </tbody>
                         </table>
                     </div>
+                    <div id="pagination-container"></div>
                 </div>
             `;
 
             // Initialiser la table des absences
             this.absenceTable = new AbsenceTable('absences-table-body');
             
-            // Charger les données
-            const absences = await this.absenceService.getAbsences();
-            if (this.absenceTable && absences) {
-                this.absenceTable.render(absences);
+            // Configurer les filtres
+            await this.setupAbsenceFilters();
+            
+            // Charger les données initiales
+            await this.loadAbsenceData();
+
+            // Configurer les événements
+            const addAbsenceBtn = document.getElementById('addAbsenceBtn');
+            if (addAbsenceBtn) {
+                addAbsenceBtn.addEventListener('click', () => this.openAbsenceModal());
             }
 
         } catch (error) {
             console.error('Erreur lors du chargement des absences:', error);
-            this.toast.show('Erreur lors du chargement des absences: ' + error.message, 'error');
+            contentContainer.innerHTML = `
+                <div class="bg-red-50 text-red-600 p-4 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-circle mr-2"></i>
+                        <span>Une erreur est survenue lors du chargement des absences</span>
+                    </div>
+                    <div class="mt-2 text-sm">
+                        ${error.message}
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    async loadAbsenceData(filters = {}) {
+        try {
+            console.log('Chargement des absences avec filtres:', filters); // Debug
+            
+            const response = await this.absenceService.getAbsences(filters);
+            console.log('Réponse du service:', response); // Debug
+            
+            if (this.absenceTable) {
+                await this.absenceTable.render(response);
+            } else {
+                console.error('absenceTable n\'est pas initialisé');
+            }
+        } catch (error) {
+            console.error('Erreur lors du chargement des absences:', error);
+            this.toast.show('Erreur lors du chargement des absences', 'error');
+        }
+    }
+
+    async setupAbsenceFilters() {
+        try {
+            // Récupérer les étudiants pour le filtre
+            const etudiantsResponse = await this.etudiantService.getEtudiants();
+            const filterEtudiant = document.getElementById('filterEtudiant');
+            
+            if (filterEtudiant && etudiantsResponse.etudiants) {
+                filterEtudiant.innerHTML = '<option value="">Tous les étudiants</option>';
+                etudiantsResponse.etudiants.forEach(etudiant => {
+                    const option = document.createElement('option');
+                    option.value = etudiant.id;
+                    option.textContent = etudiant.nomComplet;
+                    filterEtudiant.appendChild(option);
+                });
+            }
+
+            // Récupérer les cours pour le filtre
+            const coursResponse = await this.coursService.getAllCours();
+            const filterCours = document.getElementById('filterCours');
+            
+            if (filterCours && coursResponse) {
+                filterCours.innerHTML = '<option value="">Tous les cours</option>';
+                coursResponse.forEach(cours => {
+                    const option = document.createElement('option');
+                    option.value = cours.id;
+                    option.textContent = cours.libelle;
+                    filterCours.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Erreur lors de la configuration des filtres:', error);
+            this.toast.show('Erreur lors du chargement des filtres', 'error');
         }
     }
 
     async loadDashboardPage() {
         const contentContainer = document.getElementById('content');
+        if (!contentContainer) {
+            throw new Error('Container de contenu non trouvé');
+        }
         
         try {
+            // Afficher un loader pendant le chargement
+            contentContainer.innerHTML = `
+                <div class="flex justify-center items-center h-64">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#E67D23]"></div>
+                </div>
+            `;
+
             // Formater la date d'aujourd'hui au format YYYY-MM-DD
             const today = dateFormatter.toInputDate(new Date());
             
             // Charger les données depuis l'API
-            const [etudiants, professeurs, coursAujourdhui, absences] = await Promise.all([
+            const [etudiantsResponse, professeursResponse, coursResponse, absencesResponse] = await Promise.all([
                 this.etudiantService.getEtudiants(),
                 this.professeurService.getProfesseurs(),
                 this.coursService.getCoursParDate(today),
                 this.absenceService.getAbsences()
-            ]).catch(error => {
-                console.error('Erreur lors du chargement des données:', error);
-                return [[], [], [], []]; // Retourner des tableaux vides en cas d'erreur
-            });
+            ]);
 
+            // S'assurer que nous avons des tableaux valides
+            const etudiants = etudiantsResponse?.etudiants || [];
+            const professeurs = professeursResponse?.professeurs || [];
+            const cours = Array.isArray(coursResponse) ? coursResponse : [];
+            const absences = absencesResponse?.absences || [];
+
+            // Une fois les données chargées, mettre à jour le contenu
             contentContainer.innerHTML = `
                 <div class="space-y-6">
                     <!-- Statistiques -->
@@ -1030,12 +980,12 @@ export class App {
             // Mettre à jour les statistiques
             document.getElementById('totalEtudiants').textContent = etudiants.length;
             document.getElementById('totalProfesseurs').textContent = professeurs.length;
-            document.getElementById('coursAujourdhui').textContent = coursAujourdhui.length;
+            document.getElementById('coursAujourdhui').textContent = cours.length;
             document.getElementById('totalAbsences').textContent = absences.length;
 
             // Afficher les cours du jour
             const coursJourTable = document.getElementById('coursJourTable');
-            if (coursAujourdhui && coursAujourdhui.length > 0) {
+            if (cours && cours.length > 0) {
                 coursJourTable.innerHTML = `
                     <table class="min-w-full">
                         <thead>
@@ -1047,7 +997,7 @@ export class App {
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
-                            ${coursAujourdhui.map(cours => `
+                            ${cours.map(cours => `
                                 <tr>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="font-medium">${cours.libelle}</div>
@@ -1077,7 +1027,10 @@ export class App {
 
             // Afficher les absences récentes
             const absencesRecentesTable = document.getElementById('absencesRecentesTable');
-            const absencesRecentes = absences.slice(0, 5); // Prendre les 5 dernières absences
+            // Prendre les 5 dernières absences en triant d'abord par date
+            const absencesRecentes = absences
+                .sort((a, b) => new Date(b.dateAbs) - new Date(a.dateAbs))
+                .slice(0, 5);
             
             if (absencesRecentes.length > 0) {
                 absencesRecentesTable.innerHTML = `
@@ -1094,10 +1047,10 @@ export class App {
                             ${absencesRecentes.map(absence => `
                                 <tr>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        ${absence.etudiant?.nomComplet}
+                                        ${absence.etudiant?.nomComplet || 'Non défini'}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        ${absence.seance?.cours?.libelle}
+                                        ${absence.seance?.cours?.libelle || 'Non défini'}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         ${new Date(absence.dateAbs).toLocaleDateString('fr-FR')}
@@ -1106,7 +1059,7 @@ export class App {
                                         <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                                             absence.statut === 'justifié' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                                         }">
-                                            ${absence.statut}
+                                            ${absence.statut || 'Non défini'}
                                         </span>
                                     </td>
                                 </tr>
@@ -1125,19 +1078,17 @@ export class App {
 
         } catch (error) {
             console.error('Erreur lors du chargement du dashboard:', error);
-            if (contentContainer) {
-                contentContainer.innerHTML = `
-                    <div class="bg-red-50 text-red-600 p-4 rounded-lg">
-                        <div class="flex items-center">
-                            <i class="fas fa-exclamation-circle mr-2"></i>
-                            <span>Une erreur est survenue lors du chargement du dashboard</span>
-                        </div>
-                        <div class="mt-2 text-sm">
-                            ${error.message}
-                        </div>
+            contentContainer.innerHTML = `
+                <div class="bg-red-50 text-red-600 p-4 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-circle mr-2"></i>
+                        <span>Une erreur est survenue lors du chargement du dashboard</span>
                     </div>
-                `;
-            }
+                    <div class="mt-2 text-sm">
+                        ${error.message}
+                    </div>
+                </div>
+            `;
         }
     }
 
@@ -1151,68 +1102,107 @@ export class App {
     }
 
     async editProfesseur(id) {
+        if (!this.checkPermission('edit_professeur')) return;
+        
         try {
-            const professeur = await this.professeurService.getProfesseur(id);
-            // Implémenter l'ouverture du modal d'édition
-            console.log('Éditer professeur:', professeur);
+            const professeur = await this.professeurService.getProfesseurById(id);
+            if (!professeur) throw new Error('Professeur non trouvé');
+            
+            await this.openProfesseurModal(id);
         } catch (error) {
-            this.toast.show('Erreur lors de la récupération du professeur', 'error');
+            console.error('Erreur lors de l\'édition du professeur:', error);
+            this.toast.show('Erreur lors de l\'édition du professeur', 'error');
         }
     }
 
     async deleteProfesseur(id) {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer ce professeur ?')) return;
+        if (!this.checkPermission('delete_professeur')) return;
         
-        try {
-            await this.professeurService.deleteProfesseur(id);
-            this.toast.show('Professeur supprimé avec succès', 'success');
-            this.loadProfesseursPage();
-        } catch (error) {
-            this.toast.show('Erreur lors de la suppression du professeur', 'error');
+        const confirmModal = new ConfirmModal();
+        const confirmed = await confirmModal.render({
+            title: 'Supprimer le professeur',
+            message: 'Êtes-vous sûr de vouloir supprimer ce professeur ? Cette action est irréversible.',
+            confirmText: 'Supprimer',
+            cancelText: 'Annuler',
+            type: 'danger'
+        });
+        
+        if (confirmed) {
+            try {
+                await this.professeurService.deleteProfesseur(id);
+                this.toast.show('Professeur supprimé avec succès', 'success');
+                await this.loadProfesseurData();
+            } catch (error) {
+                console.error('Erreur lors de la suppression du professeur:', error);
+                this.toast.show('Erreur lors de la suppression du professeur', 'error');
+            }
         }
     }
 
     async editEtudiant(id) {
+        if (!this.checkPermission('edit_etudiant')) return;
+        
         try {
-            const etudiant = await this.etudiantService.getEtudiant(id);
-            // Implémenter l'ouverture du modal d'édition
-            console.log('Éditer étudiant:', etudiant);
+            const etudiant = await this.etudiantService.getEtudiantById(id);
+            if (!etudiant) throw new Error('Étudiant non trouvé');
+            
+            await this.openEtudiantModal(id);
         } catch (error) {
-            this.toast.show('Erreur lors de la récupération de l\'étudiant', 'error');
+            console.error('Erreur lors de l\'édition de l\'étudiant:', error);
+            this.toast.show('Erreur lors de l\'édition de l\'étudiant', 'error');
         }
     }
 
     async deleteEtudiant(id) {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer cet étudiant ?')) return;
+        if (!this.checkPermission('delete_etudiant')) return;
         
-        try {
-            await this.etudiantService.deleteEtudiant(id);
-            this.toast.show('Étudiant supprimé avec succès', 'success');
-            this.loadEtudiantsPage();
-        } catch (error) {
-            this.toast.show('Erreur lors de la suppression de l\'étudiant', 'error');
+        const confirmModal = new ConfirmModal();
+        const confirmed = await confirmModal.render({
+            title: 'Supprimer l\'étudiant',
+            message: 'Êtes-vous sûr de vouloir supprimer cet étudiant ? Cette action est irréversible.',
+            confirmText: 'Supprimer',
+            cancelText: 'Annuler',
+            type: 'danger'
+        });
+        
+        if (confirmed) {
+            try {
+                await this.etudiantService.deleteEtudiant(id);
+                this.toast.show('Étudiant supprimé avec succès', 'success');
+                await this.loadEtudiantData();
+            } catch (error) {
+                console.error('Erreur lors de la suppression de l\'étudiant:', error);
+                this.toast.show('Erreur lors de la suppression de l\'étudiant', 'error');
+            }
         }
     }
 
     async editSeance(id) {
-        try {
-            const seance = await this.seanceService.getSeance(id);
-            // Implémenter l'ouverture du modal d'édition
-            console.log('Éditer séance:', seance);
-        } catch (error) {
-            this.toast.show('Erreur lors de la récupération de la séance', 'error');
-        }
+        if (!this.checkPermission('edit_seance')) return;
+        await this.openSeanceModal(id);
     }
 
     async deleteSeance(id) {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer cette séance ?')) return;
+        if (!this.checkPermission('delete_seance')) return;
         
-        try {
-            await this.seanceService.deleteSeance(id);
-            this.toast.show('Séance supprimée avec succès', 'success');
-            this.loadSeancesPage();
-        } catch (error) {
-            this.toast.show('Erreur lors de la suppression de la séance', 'error');
+        const confirmModal = new ConfirmModal();
+        const confirmed = await confirmModal.render({
+            title: 'Supprimer la séance',
+            message: 'Êtes-vous sûr de vouloir supprimer cette séance ? Cette action est irréversible.',
+            confirmText: 'Supprimer',
+            cancelText: 'Annuler',
+            type: 'danger'
+        });
+        
+        if (confirmed) {
+            try {
+                await this.seanceService.deleteSeance(id);
+                this.toast.show('Séance supprimée avec succès', 'success');
+                await this.loadSeanceData();
+            } catch (error) {
+                console.error('Erreur lors de la suppression de la séance:', error);
+                this.toast.show('Erreur lors de la suppression de la séance', 'error');
+            }
         }
     }
 
@@ -1272,14 +1262,6 @@ export class App {
         this.authService.logout();
     }
 
-    checkPermission(permission) {
-        if (!this.authService.hasPermission(permission)) {
-            this.toast.show('Vous n\'avez pas les permissions nécessaires', 'error');
-            return false;
-        }
-        return true;
-    }
-
     updateUIBasedOnPermissions() {
         const user = this.authService.getUser();
         
@@ -1295,6 +1277,981 @@ export class App {
         const userNameElement = document.getElementById('userName');
         if (userNameElement) {
             userNameElement.textContent = `${user.prenom} ${user.nom}`;
+        }
+    }
+
+    loadDashboard() {
+        // ... code pour charger le tableau de bord ...
+        someAsyncOperation()
+            .then(response => {
+                // ... traitement de la réponse ...
+            })
+            .catch(error => {
+                console.error('Erreur lors du chargement du dashboard:', error);
+                this.toast.show('Erreur lors du chargement du dashboard', 'error');
+            });
+    }
+
+    async loadSeancesPage() {
+        try {
+            const contentContainer = document.getElementById('content');
+            if (!contentContainer) {
+                throw new Error('Container de contenu non trouvé');
+            }
+
+            contentContainer.innerHTML = `
+                <div class="bg-white rounded-lg shadow-lg p-4 md:p-6 h-full">
+                    <div class="mb-6">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div class="flex justify-between items-center w-full md:w-auto">
+                                <h2 class="text-xl font-semibold">Liste des Séances</h2>
+                                <!-- Bouton pour afficher/masquer les filtres sur mobile -->
+                                <button id="toggleFilters" class="md:hidden text-gray-600 hover:text-gray-900">
+                                    <i class="fas fa-filter"></i>
+                                </button>
+                            </div>
+                            
+                            <!-- Conteneur des filtres avec état masqué par défaut sur mobile -->
+                            <div id="filtersContainer" class="hidden md:flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                                <div class="flex flex-wrap gap-2 items-center w-full md:w-auto">
+                                    <input type="text" 
+                                        id="searchSeance" 
+                                        placeholder="Rechercher une séance..."
+                                        class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E67D23] focus:ring-opacity-50 text-sm"
+                                    >
+                                    <select id="filterCours" 
+                                        class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E67D23] focus:ring-opacity-50 text-sm">
+                                        <option value="">Tous les cours</option>
+                                    </select>
+                                    <select id="filterStatut" 
+                                        class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E67D23] focus:ring-opacity-50 text-sm">
+                                        <option value="">Tous les statuts</option>
+                                        <option value="en_cours">En cours</option>
+                                        <option value="planifié">Planifié</option>
+                                        <option value="terminé">Terminé</option>
+                                    </select>
+                                </div>
+                                <button id="addSeanceBtn" class="w-full md:w-auto btn-primary whitespace-nowrap">
+                                    <i class="fas fa-plus mr-2"></i>Ajouter une séance
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto -mx-4 md:mx-0">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50 hidden md:table-header-group">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Séance</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Professeur</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="seances-table-body" class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="pagination-container"></div>
+                </div>
+            `;
+
+            // Initialiser la table des séances
+            this.seanceTable = new SeanceTable('seances-table-body');
+            
+            // Configurer les filtres
+            await this.setupSeanceFilters();
+            
+            // Charger les données initiales
+            await this.loadSeanceData();
+            
+            // Configurer les événements
+            this.setupSeanceEventListeners();
+
+        } catch (error) {
+            console.error('Erreur lors du chargement des séances:', error);
+            this.toast.show('Erreur lors du chargement des séances', 'error');
+        }
+    }
+
+    setupSeanceEventListeners() {
+        // Recherche avec debounce
+        const searchInput = document.getElementById('searchSeance');
+        if (searchInput) {
+            searchInput.addEventListener('input', this.debounce(() => {
+                this.loadSeanceData();
+            }, 300));
+        }
+
+        // Filtre par cours
+        const filterCours = document.getElementById('filterCours');
+        if (filterCours) {
+            filterCours.addEventListener('change', () => this.loadSeanceData());
+        }
+
+        // Filtre par statut
+        const filterStatut = document.getElementById('filterStatut');
+        if (filterStatut) {
+            filterStatut.addEventListener('change', () => this.loadSeanceData());
+        }
+
+        // Bouton d'ajout
+        const addBtn = document.getElementById('addSeanceBtn');
+        if (addBtn) {
+            addBtn.addEventListener('click', () => this.openSeanceModal());
+        }
+
+        // Toggle des filtres sur mobile
+        const toggleFiltersBtn = document.getElementById('toggleFilters');
+        const filtersContainer = document.getElementById('filtersContainer');
+        
+        if (toggleFiltersBtn && filtersContainer) {
+            toggleFiltersBtn.addEventListener('click', () => {
+                filtersContainer.classList.toggle('hidden');
+                // Changer l'icône
+                const icon = toggleFiltersBtn.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-filter');
+                    icon.classList.toggle('fa-times');
+                }
+            });
+        }
+    }
+
+    async setupSeanceFilters() {
+        try {
+            // Charger les cours pour le filtre
+            const coursResponse = await this.coursService.getAllCours();
+            const cours = Array.isArray(coursResponse) ? coursResponse : [];
+            
+            const filterCours = document.getElementById('filterCours');
+            if (filterCours && cours) {
+                filterCours.innerHTML = '<option value="">Tous les cours</option>';
+                cours.forEach(cours => {
+                    const option = document.createElement('option');
+                    option.value = cours.id;
+                    option.textContent = cours.libelle;
+                    filterCours.appendChild(option);
+                });
+            }
+
+            // Configurer le filtre de statut
+            const filterStatut = document.getElementById('filterStatut');
+            if (filterStatut) {
+                filterStatut.innerHTML = `
+                    <option value="">Tous les statuts</option>
+                    <option value="en_cours">En cours</option>
+                    <option value="planifié">Planifié</option>
+                    <option value="terminé">Terminé</option>
+                `;
+            }
+        } catch (error) {
+            console.error('Erreur lors de la configuration des filtres:', error);
+            this.toast.show('Erreur lors du chargement des filtres', 'error');
+        }
+    }
+
+    async loadSeanceData(filters = {}) {
+        try {
+            // Récupérer tous les filtres actifs
+            const searchValue = document.getElementById('searchSeance')?.value;
+            const coursId = document.getElementById('filterCours')?.value;
+            const statut = document.getElementById('filterStatut')?.value;
+
+            // Combiner les filtres existants avec les nouveaux
+            const combinedFilters = {
+                ...filters,
+                ...(searchValue && { q: searchValue }),
+                ...(coursId && { coursId }),
+                ...(statut && { statut })
+            };
+
+            // Appliquer les filtres
+            await this.seanceTable.render(combinedFilters);
+        } catch (error) {
+            console.error('Erreur lors du chargement des séances:', error);
+            this.toast.show('Erreur lors du chargement des séances', 'error');
+        }
+    }
+
+    async openSeanceModal(seanceId = null) {
+        if (!this.checkPermission('edit_seance')) return;
+        
+        try {
+            const seanceModal = new SeanceModal();
+            if (seanceId) {
+                const seance = await this.seanceService.getSeanceById(seanceId);
+                if (!seance) {
+                    throw new Error('Séance non trouvée');
+                }
+                await seanceModal.render(seance);
+            } else {
+                await seanceModal.render();
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'ouverture du modal:', error);
+            this.toast.show('Erreur lors de l\'ouverture du formulaire', 'error');
+        }
+    }
+
+    async viewSeanceDetails(seanceId) {
+        try {
+            const detailsModal = new SeanceDetailsModal();
+            await detailsModal.render(seanceId);
+        } catch (error) {
+            console.error('Erreur lors de l\'affichage des détails de la séance:', error);
+            this.toast.show('Erreur lors de l\'affichage des détails de la séance', 'error');
+        }
+    }
+
+    async loadProfesseursPage() {
+        try {
+            const contentContainer = document.getElementById('content');
+            if (!contentContainer) {
+                throw new Error('Container de contenu non trouvé');
+            }
+
+            contentContainer.innerHTML = `
+                <div class="bg-white rounded-lg shadow-lg p-4 md:p-6 h-full">
+                    <div class="mb-6">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div class="flex justify-between items-center w-full md:w-auto">
+                                <h2 class="text-xl font-semibold">Liste des Professeurs</h2>
+                                <button id="toggleFilters" class="md:hidden text-gray-600 hover:text-gray-900">
+                                    <i class="fas fa-filter"></i>
+                                </button>
+                            </div>
+                            
+                            <div id="filtersContainer" class="hidden md:flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                                <div class="flex flex-wrap gap-2 items-center w-full md:w-auto">
+                                    <input type="text" 
+                                        id="searchProfesseur" 
+                                        placeholder="Rechercher un professeur..."
+                                        class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E67D23] focus:ring-opacity-50 text-sm"
+                                    >
+                                    <select id="filterSpecialite" 
+                                        class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E67D23] focus:ring-opacity-50 text-sm">
+                                        <option value="">Toutes les spécialités</option>
+                                    </select>
+                                </div>
+                                <button id="addProfesseurBtn" class="w-full md:w-auto btn-primary whitespace-nowrap">
+                                    <i class="fas fa-plus mr-2"></i>Ajouter un professeur
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto -mx-4 md:mx-0">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Professeur</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Spécialité</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="professeurs-table-body" class="bg-white divide-y divide-gray-200">
+                                <!-- Le contenu sera chargé dynamiquement -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="pagination-container"></div>
+                </div>
+            `;
+
+            // Initialiser la table des professeurs
+            this.professeurTable = new ProfesseurTable('professeurs-table-body');
+            
+            // Configurer les filtres
+            await this.setupProfesseurFilters();
+            
+            // Charger les données initiales
+            await this.loadProfesseurData();
+            
+            // Configurer les événements
+            this.setupProfesseurEventListeners();
+
+        } catch (error) {
+            console.error('Erreur lors du chargement des professeurs:', error);
+            this.toast.show('Erreur lors du chargement des professeurs', 'error');
+        }
+    }
+
+    async setupProfesseurFilters() {
+        try {
+            // Charger les spécialités pour le filtre
+            const specialites = await this.professeurService.getAllSpecialites();
+            const filterSpecialite = document.getElementById('filterSpecialite');
+            if (filterSpecialite && specialites) {
+                filterSpecialite.innerHTML = '<option value="">Toutes les spécialités</option>';
+                specialites.forEach(specialite => {
+                    const option = document.createElement('option');
+                    option.value = specialite;
+                    option.textContent = specialite;
+                    filterSpecialite.appendChild(option);
+                });
+            }
+
+            // Configurer les autres filtres si nécessaire
+            const searchInput = document.getElementById('searchProfesseur');
+            if (searchInput) {
+                searchInput.addEventListener('input', this.debounce(() => {
+                    this.loadProfesseurData();
+                }, 300));
+            }
+        } catch (error) {
+            console.error('Erreur lors de la configuration des filtres:', error);
+            this.toast.show('Erreur lors du chargement des filtres', 'error');
+        }
+    }
+
+    async loadProfesseurData(filters = {}) {
+        try {
+            // Récupérer tous les filtres actifs
+            const searchValue = document.getElementById('searchProfesseur')?.value;
+            const specialite = document.getElementById('filterSpecialite')?.value;
+
+            // Combiner les filtres existants avec les nouveaux
+            const combinedFilters = {
+                ...filters,
+                ...(searchValue && { q: searchValue }),
+                ...(specialite && { specialite })
+            };
+
+            // Appliquer les filtres
+            await this.professeurTable.render(combinedFilters);
+        } catch (error) {
+            console.error('Erreur lors du chargement des professeurs:', error);
+            this.toast.show('Erreur lors du chargement des professeurs', 'error');
+        }
+    }
+
+    async setupProfesseurEventListeners() {
+        // Recherche avec debounce
+        const searchInput = document.getElementById('searchProfesseur');
+        if (searchInput) {
+            searchInput.addEventListener('input', this.debounce(() => {
+                this.loadProfesseurData();
+            }, 300));
+        }
+
+        // Filtre par spécialité
+        const filterSpecialite = document.getElementById('filterSpecialite');
+        if (filterSpecialite) {
+            filterSpecialite.addEventListener('change', () => this.loadProfesseurData());
+        }
+
+        // Bouton d'ajout
+        const addBtn = document.getElementById('addProfesseurBtn');
+        if (addBtn) {
+            addBtn.addEventListener('click', () => this.openProfesseurModal());
+        }
+
+        // Toggle des filtres sur mobile
+        const toggleFiltersBtn = document.getElementById('toggleFilters');
+        const filtersContainer = document.getElementById('filtersContainer');
+        
+        if (toggleFiltersBtn && filtersContainer) {
+            toggleFiltersBtn.addEventListener('click', () => {
+                filtersContainer.classList.toggle('hidden');
+                const icon = toggleFiltersBtn.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-filter');
+                    icon.classList.toggle('fa-times');
+                }
+            });
+        }
+    }
+
+    async openProfesseurModal(professeurId = null) {
+        if (!this.checkPermission('edit_professeur')) return;
+        
+        try {
+            const professeurModal = new ProfesseurModal();
+            if (professeurId) {
+                const professeur = await this.professeurService.getProfesseurById(professeurId);
+                if (!professeur) {
+                    throw new Error('Professeur non trouvé');
+                }
+                await professeurModal.render(professeur);
+            } else {
+                await professeurModal.render();
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'ouverture du modal:', error);
+            this.toast.show('Erreur lors de l\'ouverture du formulaire', 'error');
+        }
+    }
+
+    async viewProfesseurDetails(professeurId) {
+        try {
+            if (!professeurId) throw new Error('ID du professeur non fourni');
+            
+            const professeur = await this.professeurService.getProfesseursWithCours(professeurId);
+            if (!professeur) throw new Error('Professeur non trouvé');
+
+            const detailsModal = new ProfesseurDetailsModal();
+            await detailsModal.render(professeurId);
+        } catch (error) {
+            console.error('Erreur lors de l\'affichage des détails du professeur:', error);
+            this.toast.show('Erreur lors de l\'affichage des détails du professeur', 'error');
+        }
+    }
+
+    async loadEtudiantsPage() {
+        try {
+            const contentContainer = document.getElementById('content');
+            if (!contentContainer) {
+                throw new Error('Container de contenu non trouvé');
+            }
+
+            contentContainer.innerHTML = `
+                <div class="bg-white rounded-lg shadow-lg p-4 md:p-6 h-full">
+                    <div class="mb-6">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div class="flex justify-between items-center w-full md:w-auto">
+                                <h2 class="text-xl font-semibold">Liste des Étudiants</h2>
+                                <button id="toggleFilters" class="md:hidden text-gray-600 hover:text-gray-900">
+                                    <i class="fas fa-filter"></i>
+                                </button>
+                            </div>
+                            
+                            <div id="filtersContainer" class="hidden md:flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                                <div class="flex flex-wrap gap-2 items-center w-full md:w-auto">
+                                    <input type="text" 
+                                        id="searchEtudiant" 
+                                        placeholder="Rechercher un étudiant..."
+                                        class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E67D23] focus:ring-opacity-50 text-sm"
+                                    >
+                                    <select id="filterClasse" 
+                                        class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E67D23] focus:ring-opacity-50 text-sm">
+                                        <option value="">Toutes les classes</option>
+                                    </select>
+                                    <select id="filterStatut" 
+                                        class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E67D23] focus:ring-opacity-50 text-sm">
+                                        <option value="">Tous les statuts</option>
+                                        <option value="actif">Actif</option>
+                                        <option value="inactif">Inactif</option>
+                                    </select>
+                                </div>
+                                <button id="addEtudiantBtn" class="w-full md:w-auto btn-primary whitespace-nowrap">
+                                    <i class="fas fa-plus mr-2"></i>Ajouter un étudiant
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto -mx-4 md:mx-0">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Étudiant</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Classe</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="etudiants-table-body" class="bg-white divide-y divide-gray-200">
+                                <!-- Le contenu sera chargé dynamiquement -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="pagination-container"></div>
+                </div>
+            `;
+
+            // Initialiser la table des étudiants
+            this.etudiantTable = new EtudiantTable('etudiants-table-body');
+            
+            // Configurer les filtres
+            await this.setupEtudiantFilters();
+            
+            // Charger les données initiales
+            await this.loadEtudiantData();
+            
+            // Configurer les événements
+            this.setupEtudiantEventListeners();
+
+        } catch (error) {
+            console.error('Erreur lors du chargement des étudiants:', error);
+            this.toast.show('Erreur lors du chargement des étudiants', 'error');
+        }
+    }
+
+    async setupEtudiantFilters() {
+        try {
+            // Charger les classes pour le filtre
+            const classesResponse = await this.classeService.getClasses();
+            const filterClasse = document.getElementById('filterClasse');
+            
+            if (filterClasse && classesResponse.data) {
+                // Vider d'abord le select
+                filterClasse.innerHTML = '<option value="">Toutes les classes</option>';
+                
+                // Ajouter les options de classe
+                classesResponse.data.forEach(classe => {
+                    const option = document.createElement('option');
+                    option.value = classe.id;
+                    option.textContent = classe.nom;
+                    filterClasse.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Erreur lors de la configuration des filtres:', error);
+            this.toast.show('Erreur lors du chargement des filtres', 'error');
+        }
+    }
+
+    async loadEtudiantData(filters = {}) {
+        try {
+            // Récupérer tous les filtres actifs
+            const searchValue = document.getElementById('searchEtudiant')?.value;
+            const classeId = document.getElementById('filterClasse')?.value;
+            const statut = document.getElementById('filterStatut')?.value;
+
+            // Combiner les filtres existants avec les nouveaux
+            const combinedFilters = {
+                ...filters,
+                ...(searchValue && { q: searchValue }),
+                ...(classeId && { classeId: parseInt(classeId) }), // Convertir en nombre
+                ...(statut && { statut })
+            };
+
+            // Appliquer les filtres
+            await this.etudiantTable.render(combinedFilters);
+        } catch (error) {
+            console.error('Erreur lors du chargement des étudiants:', error);
+            this.toast.show('Erreur lors du chargement des étudiants', 'error');
+        }
+    }
+
+    setupEtudiantEventListeners() {
+        // Recherche avec debounce
+        const searchInput = document.getElementById('searchEtudiant');
+        if (searchInput) {
+            searchInput.addEventListener('input', this.debounce(() => {
+                this.loadEtudiantData();
+            }, 300));
+        }
+
+        // Filtre par classe
+        const filterClasse = document.getElementById('filterClasse');
+        if (filterClasse) {
+            filterClasse.addEventListener('change', () => this.loadEtudiantData());
+        }
+
+        // Filtre par statut
+        const filterStatut = document.getElementById('filterStatut');
+        if (filterStatut) {
+            filterStatut.addEventListener('change', () => this.loadEtudiantData());
+        }
+
+        // Bouton d'ajout
+        const addBtn = document.getElementById('addEtudiantBtn');
+        if (addBtn) {
+            addBtn.addEventListener('click', () => this.openEtudiantModal());
+        }
+
+        // Toggle des filtres sur mobile
+        const toggleFiltersBtn = document.getElementById('toggleFilters');
+        const filtersContainer = document.getElementById('filtersContainer');
+        
+        if (toggleFiltersBtn && filtersContainer) {
+            toggleFiltersBtn.addEventListener('click', () => {
+                filtersContainer.classList.toggle('hidden');
+                const icon = toggleFiltersBtn.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-filter');
+                    icon.classList.toggle('fa-times');
+                }
+            });
+        }
+    }
+
+    async openEtudiantModal(etudiantId = null) {
+        try {
+            const etudiantModal = new EtudiantModal();
+            if (etudiantId) {
+                const etudiant = await this.etudiantService.getEtudiantById(etudiantId);
+                if (!etudiant) {
+                    throw new Error('Étudiant non trouvé');
+                }
+                await etudiantModal.render(etudiant);
+            } else {
+                await etudiantModal.render();
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'ouverture du modal:', error);
+            this.toast.show('Erreur lors de l\'ouverture du formulaire', 'error');
+        }
+    }
+
+    async viewEtudiantDetails(etudiantId) {
+        try {
+            if (!etudiantId) throw new Error('ID de l\'étudiant non fourni');
+            
+            const etudiant = await this.etudiantService.getEtudiantById(etudiantId);
+            if (!etudiant) throw new Error('Étudiant non trouvé');
+
+            const detailsModal = new EtudiantDetailsModal();
+            await detailsModal.render(etudiantId);
+        } catch (error) {
+            console.error('Erreur lors de l\'affichage des détails de l\'étudiant:', error);
+            this.toast.show('Erreur lors de l\'affichage des détails de l\'étudiant', 'error');
+        }
+    }
+
+    async setupAbsenceFilters() {
+        try {
+            // Récupérer les étudiants pour le filtre
+            const etudiantsResponse = await this.etudiantService.getEtudiants();
+            const filterEtudiant = document.getElementById('filterEtudiant');
+            
+            if (filterEtudiant && etudiantsResponse.etudiants) {
+                filterEtudiant.innerHTML = '<option value="">Tous les étudiants</option>';
+                etudiantsResponse.etudiants.forEach(etudiant => {
+                    const option = document.createElement('option');
+                    option.value = etudiant.id;
+                    option.textContent = etudiant.nomComplet;
+                    filterEtudiant.appendChild(option);
+                });
+            }
+
+            // Récupérer les cours pour le filtre
+            const coursResponse = await this.coursService.getAllCours();
+            const filterCours = document.getElementById('filterCours');
+            
+            if (filterCours && coursResponse) {
+                filterCours.innerHTML = '<option value="">Tous les cours</option>';
+                coursResponse.forEach(cours => {
+                    const option = document.createElement('option');
+                    option.value = cours.id;
+                    option.textContent = cours.libelle;
+                    filterCours.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Erreur lors de la configuration des filtres:', error);
+            this.toast.show('Erreur lors du chargement des filtres', 'error');
+        }
+    }
+
+    async loadAbsenceData(filters = {}) {
+        try {
+            console.log('Chargement des absences avec filtres:', filters); // Debug
+            
+            const response = await this.absenceService.getAbsences(filters);
+            console.log('Réponse du service:', response); // Debug
+            
+            if (this.absenceTable) {
+                await this.absenceTable.render(response);
+            } else {
+                console.error('absenceTable n\'est pas initialisé');
+            }
+        } catch (error) {
+            console.error('Erreur lors du chargement des absences:', error);
+            this.toast.show('Erreur lors du chargement des absences', 'error');
+        }
+    }
+
+    async viewAbsenceDetails(absenceId) {
+        try {
+            if (!absenceId) throw new Error('ID de l\'absence non fourni');
+            
+            const detailsModal = new AbsenceDetailsModal();
+            await detailsModal.render(absenceId);
+        } catch (error) {
+            console.error('Erreur lors de l\'affichage des détails de l\'absence:', error);
+            this.toast.show('Erreur lors de l\'affichage des détails', 'error');
+        }
+    }
+
+    async openAbsenceModal(seanceId = null, absenceId = null) {
+        try {
+            const absenceModal = new AbsenceModal();
+            if (absenceId) {
+                const absence = await this.absenceService.getAbsenceById(absenceId);
+                if (!absence) throw new Error('Absence non trouvée');
+                await absenceModal.render(absence);
+            } else {
+                await absenceModal.render(null, seanceId);
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'ouverture du modal:', error);
+            this.toast.show('Erreur lors de l\'ouverture du formulaire', 'error');
+        }
+    }
+
+    async justifierAbsence(absenceId) {
+        if (!this.checkPermission('edit_absence')) return;
+        
+        try {
+            const absence = await this.absenceService.getAbsenceById(absenceId);
+            if (!absence) throw new Error('Absence non trouvée');
+
+            const justificationModal = new JustificationModal();
+            await justificationModal.render(absenceId);
+        } catch (error) {
+            console.error('Erreur lors de la justification:', error);
+            this.toast.show('Erreur lors de la justification', 'error');
+        }
+    }
+
+    async deleteAbsence(absenceId) {
+        if (!this.checkPermission('delete_absence')) return;
+        
+        const confirmModal = new ConfirmModal();
+        const confirmed = await confirmModal.render({
+            title: 'Supprimer l\'absence',
+            message: 'Êtes-vous sûr de vouloir supprimer cette absence ? Cette action est irréversible.',
+            confirmText: 'Supprimer',
+            cancelText: 'Annuler',
+            type: 'danger'
+        });
+        
+        if (confirmed) {
+            try {
+                await this.absenceService.deleteAbsence(absenceId);
+                this.toast.show('Absence supprimée avec succès', 'success');
+                await this.loadAbsenceData();
+            } catch (error) {
+                console.error('Erreur lors de la suppression:', error);
+                this.toast.show('Erreur lors de la suppression', 'error');
+            }
+        }
+    }
+
+    async loadClassesPage() {
+        try {
+            const contentContainer = document.getElementById('content');
+            if (!contentContainer) {
+                throw new Error('Container de contenu non trouvé');
+            }
+
+            contentContainer.innerHTML = `
+                <div class="bg-white rounded-lg shadow-lg p-4 md:p-6 h-full">
+                    <div class="mb-6">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div class="flex justify-between items-center w-full md:w-auto">
+                                <h2 class="text-xl font-semibold">Liste des Classes</h2>
+                                <button id="toggleFilters" class="md:hidden text-gray-600 hover:text-gray-900">
+                                    <i class="fas fa-filter"></i>
+                                </button>
+                            </div>
+                            
+                            <div id="filtersContainer" class="hidden md:flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                                <div class="flex flex-wrap gap-2 items-center w-full md:w-auto">
+                                    <input type="text" 
+                                        id="searchClasse" 
+                                        placeholder="Rechercher une classe..."
+                                        class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E67D23] focus:ring-opacity-50 text-sm"
+                                    >
+                                    <select id="filterNiveau" 
+                                        class="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E67D23] focus:ring-opacity-50 text-sm">
+                                        <option value="">Tous les niveaux</option>
+                                        <option value="Niveau 1">Niveau 1</option>
+                                        <option value="Niveau 2">Niveau 2</option>
+                                        <option value="Niveau 3">Niveau 3</option>
+                                    </select>
+                                </div>
+                                <button id="addClasseBtn" class="w-full md:w-auto btn-primary whitespace-nowrap">
+                                    <i class="fas fa-plus mr-2"></i>Ajouter une classe
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto -mx-4 md:mx-0">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Classe</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Effectif</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="classes-table-body" class="bg-white divide-y divide-gray-200">
+                                <!-- Le contenu sera chargé dynamiquement -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="pagination-container"></div>
+                </div>
+            `;
+
+            // Initialiser la table des classes
+            this.classeTable = new ClasseTable('classes-table-body');
+            
+            // Charger les données initiales
+            await this.loadClasseData();
+            
+            // Configurer les événements
+            this.setupClasseEventListeners();
+
+        } catch (error) {
+            console.error('Erreur lors du chargement des classes:', error);
+            this.toast.show('Erreur lors du chargement des classes', 'error');
+        }
+    }
+
+    async loadClasseData(filters = {}) {
+        try {
+            // Récupérer tous les filtres actifs
+            const searchValue = document.getElementById('searchClasse')?.value;
+            const niveau = document.getElementById('filterNiveau')?.value;
+
+            // Combiner les filtres existants avec les nouveaux
+            const combinedFilters = {
+                ...filters,
+                ...(searchValue && { q: searchValue }),
+                ...(niveau && { niveau })
+            };
+
+            // Appliquer les filtres
+            await this.classeTable.render(combinedFilters);
+        } catch (error) {
+            console.error('Erreur lors du chargement des classes:', error);
+            this.toast.show('Erreur lors du chargement des classes', 'error');
+        }
+    }
+
+    setupClasseEventListeners() {
+        // Recherche avec debounce
+        const searchInput = document.getElementById('searchClasse');
+        if (searchInput) {
+            searchInput.addEventListener('input', this.debounce(() => {
+                this.loadClasseData();
+            }, 300));
+        }
+
+        // Filtre par niveau
+        const filterNiveau = document.getElementById('filterNiveau');
+        if (filterNiveau) {
+            filterNiveau.addEventListener('change', () => this.loadClasseData());
+        }
+
+        // Bouton d'ajout
+        const addBtn = document.getElementById('addClasseBtn');
+        if (addBtn) {
+            addBtn.addEventListener('click', () => this.openClasseModal());
+        }
+
+        // Toggle des filtres sur mobile
+        const toggleFiltersBtn = document.getElementById('toggleFilters');
+        const filtersContainer = document.getElementById('filtersContainer');
+        
+        if (toggleFiltersBtn && filtersContainer) {
+            toggleFiltersBtn.addEventListener('click', () => {
+                filtersContainer.classList.toggle('hidden');
+                const icon = toggleFiltersBtn.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-filter');
+                    icon.classList.toggle('fa-times');
+                }
+            });
+        }
+    }
+
+    async openClasseModal(classeId = null) {
+        try {
+            const classeModal = new ClasseModal();
+            if (classeId) {
+                const classe = await this.classeService.getClasseById(classeId);
+                if (!classe) {
+                    throw new Error('Classe non trouvée');
+                }
+                await classeModal.render(classe);
+            } else {
+                await classeModal.render();
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'ouverture du modal:', error);
+            this.toast.show('Erreur lors de l\'ouverture du formulaire', 'error');
+        }
+    }
+
+    async editClasse(id) {
+        if (!this.checkPermission('edit_classe')) return;
+        await this.openClasseModal(id);
+    }
+
+    async deleteClasse(id) {
+        if (!this.checkPermission('delete_classe')) return;
+        
+        const confirmModal = new ConfirmModal();
+        const confirmed = await confirmModal.render({
+            title: 'Supprimer la classe',
+            message: 'Êtes-vous sûr de vouloir supprimer cette classe ? Cette action est irréversible.',
+            confirmText: 'Supprimer',
+            cancelText: 'Annuler',
+            type: 'danger'
+        });
+        
+        if (confirmed) {
+            try {
+                await this.classeService.deleteClasse(id);
+                this.toast.show('Classe supprimée avec succès', 'success');
+                await this.loadClasseData();
+            } catch (error) {
+                console.error('Erreur lors de la suppression:', error);
+                this.toast.show('Erreur lors de la suppression', 'error');
+            }
+        }
+    }
+
+    async viewClasseDetails(classeId) {
+        try {
+            const detailsModal = new ClasseDetailsModal();
+            await detailsModal.render(classeId);
+        } catch (error) {
+            console.error('Erreur lors de l\'affichage des détails de la classe:', error);
+            this.toast.show('Erreur lors de l\'affichage des détails', 'error');
+        }
+    }
+
+    async removeEtudiantFromClasse(etudiantId, classeId) {
+        const confirmModal = new ConfirmModal();
+        const confirmed = await confirmModal.render({
+            title: 'Retirer l\'étudiant',
+            message: 'Êtes-vous sûr de vouloir retirer cet étudiant de la classe ?',
+            confirmText: 'Retirer',
+            cancelText: 'Annuler',
+            type: 'warning'
+        });
+        
+        if (confirmed) {
+            try {
+                await this.etudiantService.updateEtudiant(etudiantId, { classeId: null });
+                this.toast.show('Étudiant retiré avec succès', 'success');
+                await this.viewClasseDetails(classeId);
+            } catch (error) {
+                console.error('Erreur lors du retrait de l\'étudiant:', error);
+                this.toast.show('Erreur lors du retrait de l\'étudiant', 'error');
+            }
+        }
+    }
+
+    async openAddEtudiantToClasseModal(classeId) {
+        try {
+            const etudiants = await this.etudiantService.getEtudiantsSansClasse();
+            if (!etudiants || etudiants.length === 0) {
+                this.toast.show('Aucun étudiant disponible à ajouter', 'info');
+                return;
+            }
+            
+            const modal = new AddEtudiantToClasseModal();
+            await modal.render(classeId, etudiants);
+        } catch (error) {
+            console.error('Erreur lors de l\'ouverture du modal:', error);
+            this.toast.show('Erreur lors de l\'ouverture du formulaire', 'error');
         }
     }
 } 

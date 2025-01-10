@@ -7,12 +7,7 @@ export class Header {
     render() {
         this.container.innerHTML = `
             <div class="flex justify-between items-center mb-6">
-                <div class="flex items-center">
-                    <button id="openSidebar" class="md:hidden mr-4 text-gray-500 hover:text-gray-700">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <h1 class="text-2xl md:text-3xl font-semibold text-[#c9151b]">${this.currentTitle}</h1>
-                </div>
+                
                 <div class="flex items-center gap-4">
                     ${this.renderPageSpecificControls()}
                     <span id="currentDate" class="hidden md:block text-gray-600">

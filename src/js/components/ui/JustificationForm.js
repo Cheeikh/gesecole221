@@ -4,66 +4,73 @@ export class JustificationForm {
     }
 
     render(absence) {
-        this.container.innerHTML = `
+        const html = `
             <form id="justificationForm" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Motif de l'absence
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Motif de la justification
                     </label>
-                    <textarea name="justification" 
-                             rows="4" 
-                             class="input-primary w-full"
-                             placeholder="Saisissez le motif de l'absence..."
-                             required>${absence?.justification || ''}</textarea>
+                    <textarea 
+                        name="justification" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        rows="3"
+                        required>${absence?.justification || ''}</textarea>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
                         Document justificatif
                     </label>
-                    <input type="file" 
-                           name="document" 
-                           accept=".pdf,.jpg,.jpeg,.png"
-                           class="input-primary w-full">
-                    <p class="text-sm text-gray-500 mt-1">
-                        Formats acceptés: PDF, JPG, PNG
-                    </p>
+                    <input 
+                        type="file" 
+                        name="fichierJustificatif"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        class="w-full">
+                    ${absence?.fichierJustificatif ? `
+                        <div class="mt-2">
+                            <a href="${absence.fichierJustificatif}" 
+                               target="_blank"
+                               class="text-blue-600 hover:text-blue-800">
+                                Voir le document actuel
+                            </a>
+                        </div>
+                    ` : ''}
                 </div>
 
-                <div class="flex justify-end gap-4 mt-6">
-                    <button type="button" id="cancelBtn" class="btn-secondary">
-                        Annuler
-                    </button>
-                    <button type="submit" class="btn-primary">
+                <div class="flex justify-end space-x-3">
+                    <button type="submit" 
+                        class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
                         Valider la justification
                     </button>
                 </div>
             </form>
         `;
-        this.setupEventListeners();
+
+        this.container.innerHTML = html;
+        this.setupEventListeners(absence?.id);
     }
 
-    setupEventListeners() {
+    setupEventListeners(absenceId) {
         const form = document.getElementById('justificationForm');
-        const cancelBtn = document.getElementById('cancelBtn');
-
-        form.addEventListener('submit', (e) => {
+        
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(form);
-            const justificationData = Object.fromEntries(formData.entries());
-            this.onSubmit && this.onSubmit(justificationData);
+
+            try {
+                await app.absenceService.justifierAbsence(absenceId, {
+                    justification: formData.get('justification'),
+                    fichierJustificatif: formData.get('fichierJustificatif'),
+                    dateJustification: new Date().toISOString(),
+                    statut: 'justifié'
+                });
+
+                app.toast.show('Justification enregistrée avec succès', 'success');
+                app.loadAbsenceData();
+            } catch (error) {
+                console.error('Erreur lors de l\'enregistrement de la justification:', error);
+                app.toast.show('Erreur lors de l\'enregistrement de la justification', 'error');
+            }
         });
-
-        cancelBtn.addEventListener('click', () => {
-            this.onCancel && this.onCancel();
-        });
-    }
-
-    onSubmit(callback) {
-        this.onSubmit = callback;
-    }
-
-    onCancel(callback) {
-        this.onCancel = callback;
     }
 } 
