@@ -4,28 +4,7 @@ export class Header {
         this.currentTitle = 'Tableau de bord';
     }
 
-    render() {
-        this.container.innerHTML = `
-            <div class="flex justify-between items-center mb-6">
-                
-                <div class="flex items-center gap-4">
-                    ${this.renderPageSpecificControls()}
-                    <span id="currentDate" class="hidden md:block text-gray-600">
-                        ${new Date().toLocaleDateString('fr-FR', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                        })}
-                    </span>
-                    <button id="refreshBtn" class="text-gray-500 hover:text-gray-700 transition-colors">
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-        this.setupEventListeners();
-    }
+    
 
     renderPageSpecificControls() {
         if (this.getCurrentPage() === 'dashboard') {

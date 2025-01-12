@@ -4,7 +4,7 @@ export class ClasseTable {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
         this.currentPage = 1;
-        this.limit = 5;
+        this.limit = 6;
         this.tableHeight = 'calc(100vh - 350px)';
         
         this.pagination = new Pagination({
@@ -33,59 +33,69 @@ export class ClasseTable {
             limit: this.limit
         });
 
-        const tableWrapper = this.container.closest('.overflow-x-auto');
-        if (tableWrapper) {
-            tableWrapper.style.height = this.tableHeight;
-            tableWrapper.style.overflowY = 'auto';
-        }
+        this.container.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6';
 
         if (!classes || classes.length === 0) {
             this.container.innerHTML = `
-                <tr>
-                    <td colspan="4" class="text-center py-8">
-                        <div class="flex flex-col items-center justify-center text-gray-500">
-                            <i class="fas fa-school text-5xl mb-4"></i>
-                            <p class="text-lg font-medium">Aucune classe trouvée</p>
-                            <p class="text-sm mt-1">Ajoutez une nouvelle classe pour commencer</p>
-                        </div>
-                    </td>
-                </tr>
+                <div class="col-span-full flex flex-col items-center justify-center p-8 bg-white rounded-lg shadow">
+                    <i class="fas fa-school text-5xl text-gray-400 mb-4"></i>
+                    <p class="text-lg font-medium text-gray-900">Aucune classe trouvée</p>
+                    <p class="text-sm text-gray-500 mt-1">Ajoutez une nouvelle classe pour commencer</p>
+                </div>
             `;
             this.pagination.render('pagination-container');
             return;
         }
 
         this.container.innerHTML = classes.map(classe => `
-            <tr class="hover:bg-gray-50 cursor-pointer transition-colors duration-150" 
-                onclick="app.viewClasseDetails(${classe.id})">
-                <td class="px-6 py-4">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0 h-10 w-10 bg-[#E67D23] bg-opacity-10 rounded-lg flex items-center justify-center">
-                            <i class="fas fa-school text-[#E67D23]"></i>
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden cursor-pointer"
+                 onclick="app.viewClasseDetails(${classe.id})">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="h-12 w-12 bg-[#E67D23] bg-opacity-10 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-school text-[#E67D23] text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="text-lg font-semibold text-gray-900">${classe.nom}</h3>
+                                <p class="text-sm text-gray-500">${classe.niveau || 'Niveau non défini'}</p>
+                            </div>
                         </div>
-                        <div class="ml-4">
-                            <div class="text-sm font-medium text-gray-900">${classe.nom}</div>
-                            <div class="text-sm text-gray-500">${classe.niveau || 'Niveau non défini'}</div>
+                        <div class="flex space-x-2">
+                            <button onclick="event.stopPropagation(); app.editClasse(${classe.id})" 
+                                    class="p-2 text-gray-400 hover:text-indigo-600 transition-colors">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="event.stopPropagation(); app.deleteClasse(${classe.id})" 
+                                    class="p-2 text-gray-400 hover:text-red-600 transition-colors">
+                                <i class="fas fa-trash"></i>
+                            </button>
                         </div>
                     </div>
-                </td>
-                <td class="px-6 py-4">
-                    <div class="text-sm text-gray-900">${classe.description || 'Aucune description'}</div>
-                </td>
-                <td class="px-6 py-4">
-                    <div class="text-sm text-gray-900">${classe.nbEtudiants} étudiants</div>
-                </td>
-                <td class="px-6 py-4 text-right text-sm font-medium">
-                    <button onclick="event.stopPropagation(); app.editClasse(${classe.id})" 
-                            class="text-indigo-600 hover:text-indigo-900 mr-3">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button onclick="event.stopPropagation(); app.deleteClasse(${classe.id})" 
-                            class="text-red-600 hover:text-red-900">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </td>
-            </tr>
+                    
+                    <div class="mt-4">
+                        <p class="text-sm text-gray-600 line-clamp-2">${classe.description || 'Aucune description'}</p>
+                    </div>
+                    
+                    <div class="mt-6 flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="flex -space-x-2">
+                                ${Array(Math.min(3, classe.nbEtudiants)).fill(0).map(() => `
+                                    <div class="h-8 w-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
+                                        <i class="fas fa-user-graduate text-gray-500 text-xs"></i>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <p class="ml-4 text-sm text-gray-600">
+                                <span class="font-medium">${classe.nbEtudiants}</span> étudiants
+                            </p>
+                        </div>
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                            Actif
+                        </span>
+                    </div>
+                </div>
+            </div>
         `).join('');
 
         this.pagination.render('pagination-container');

@@ -38,6 +38,7 @@ import { ClasseTable } from './components/ClasseTable.js';
 import { ClasseModal } from './components/modals/ClasseModal.js';
 import { AddEtudiantToClasseModal } from './components/modals/AddEtudiantToClasseModal.js';
 import { ClasseDetailsModal } from './components/modals/ClasseDetailsModal.js';
+import { Dashboard } from './components/Dashboard.js';
 
 export class App {
     constructor() {
@@ -150,7 +151,6 @@ export class App {
         // Render components
         this.sidebar.render();
         this.topbar.render();
-        this.header.render();
         this.filters.render();
 
         // Setup event listeners
@@ -887,194 +887,166 @@ export class App {
                 </div>
             `;
 
-            // Formater la date d'aujourd'hui au format YYYY-MM-DD
+            // Formater la date d'aujourd'hui
             const today = dateFormatter.toInputDate(new Date());
             
-            // Charger les données depuis l'API
-            const [etudiantsResponse, professeursResponse, coursResponse, absencesResponse] = await Promise.all([
+            // Charger toutes les données nécessaires
+            const [
+                etudiantsResponse, 
+                professeursResponse, 
+                coursResponse, 
+                absencesResponse,
+                classesResponse
+            ] = await Promise.all([
                 this.etudiantService.getEtudiants(),
                 this.professeurService.getProfesseurs(),
                 this.coursService.getCoursParDate(today),
-                this.absenceService.getAbsences()
+                this.absenceService.getAbsences(),
+                this.classeService.getClasses()
             ]);
 
-            // S'assurer que nous avons des tableaux valides
+            // Préparer les données
             const etudiants = etudiantsResponse?.etudiants || [];
             const professeurs = professeursResponse?.professeurs || [];
             const cours = Array.isArray(coursResponse) ? coursResponse : [];
             const absences = absencesResponse?.absences || [];
+            const classes = classesResponse?.data || [];
 
-            // Une fois les données chargées, mettre à jour le contenu
+            // Calculer les statistiques supplémentaires
+            const etudiantsActifs = etudiants.filter(e => e.statut === 'actif').length;
+            const coursEnCours = cours.filter(c => c.statut === 'en_cours').length;
+            const absencesNonJustifiees = absences.filter(a => a.statut === 'non_justifié').length;
+            const tauxPresence = etudiants.length > 0 ? 
+                Math.round(((etudiants.length - absencesNonJustifiees) / etudiants.length) * 100) : 0;
+
+            // Mettre à jour le contenu
             contentContainer.innerHTML = `
                 <div class="space-y-6">
-                    <!-- Statistiques -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div class="bg-white p-6 rounded-lg shadow-lg">
-                            <div class="flex items-center justify-between">
+                    <!-- Titre du dashboard -->
+                    <div class="flex items-center justify-between">
+                        <h1 class="text-2xl font-bold text-gray-800">
+                            Tableau de bord
+                        </h1>
+                        <div class="text-sm text-gray-500">
+                            ${new Date().toLocaleDateString('fr-FR', { 
+                                weekday: 'long', 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                            })}
+                        </div>
+                    </div>
+
+                    <!-- Statistiques principales -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <!-- Total Étudiants -->
+                        <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white shadow-lg">
+                            <div class="flex justify-between items-start">
                                 <div>
-                                    <h3 class="text-lg font-semibold mb-2">Total Étudiants</h3>
-                                    <p id="totalEtudiants" class="text-3xl font-bold text-[#E67D23]">...</p>
+                                    <p class="text-white/80 text-sm">Total Étudiants</p>
+                                    <h3 class="text-3xl font-bold mt-2">${etudiants.length}</h3>
+                                    <p class="text-sm mt-2">
+                                        <span class="bg-white/20 px-2 py-1 rounded">
+                                            ${etudiantsActifs} actifs
+                                        </span>
+                                    </p>
                                 </div>
-                                <div class="text-[#E67D23] text-3xl">
-                                    <i class="fas fa-user-graduate"></i>
+                                <div class="bg-white/20 p-3 rounded-lg">
+                                    <i class="fas fa-user-graduate text-2xl"></i>
                                 </div>
                             </div>
                         </div>
-                        <div class="bg-white p-6 rounded-lg shadow-lg">
-                            <div class="flex items-center justify-between">
+
+                        <!-- Total Professeurs -->
+                        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg">
+                            <div class="flex justify-between items-start">
                                 <div>
-                                    <h3 class="text-lg font-semibold mb-2">Total Professeurs</h3>
-                                    <p id="totalProfesseurs" class="text-3xl font-bold text-[#E67D23]">...</p>
+                                    <p class="text-white/80 text-sm">Total Professeurs</p>
+                                    <h3 class="text-3xl font-bold mt-2">${professeurs.length}</h3>
+                                    <p class="text-sm mt-2">
+                                        <span class="bg-white/20 px-2 py-1 rounded">
+                                            ${classes.length} classes
+                                        </span>
+                                    </p>
                                 </div>
-                                <div class="text-[#E67D23] text-3xl">
-                                    <i class="fas fa-chalkboard-teacher"></i>
+                                <div class="bg-white/20 p-3 rounded-lg">
+                                    <i class="fas fa-chalkboard-teacher text-2xl"></i>
                                 </div>
                             </div>
                         </div>
-                        <div class="bg-white p-6 rounded-lg shadow-lg">
-                            <div class="flex items-center justify-between">
+
+                        <!-- Cours du jour -->
+                        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white shadow-lg">
+                            <div class="flex justify-between items-start">
                                 <div>
-                                    <h3 class="text-lg font-semibold mb-2">Cours Aujourd'hui</h3>
-                                    <p id="coursAujourdhui" class="text-3xl font-bold text-[#E67D23]">...</p>
+                                    <p class="text-white/80 text-sm">Cours Aujourd'hui</p>
+                                    <h3 class="text-3xl font-bold mt-2">${cours.length}</h3>
+                                    <p class="text-sm mt-2">
+                                        <span class="bg-white/20 px-2 py-1 rounded">
+                                            ${coursEnCours} en cours
+                                        </span>
+                                    </p>
                                 </div>
-                                <div class="text-[#E67D23] text-3xl">
-                                    <i class="fas fa-book"></i>
+                                <div class="bg-white/20 p-3 rounded-lg">
+                                    <i class="fas fa-book text-2xl"></i>
                                 </div>
                             </div>
                         </div>
-                        <div class="bg-white p-6 rounded-lg shadow-lg">
-                            <div class="flex items-center justify-between">
+
+                        <!-- Taux de présence -->
+                        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+                            <div class="flex justify-between items-start">
                                 <div>
-                                    <h3 class="text-lg font-semibold mb-2">Absences</h3>
-                                    <p id="totalAbsences" class="text-3xl font-bold text-[#E67D23]">...</p>
+                                    <p class="text-white/80 text-sm">Taux de présence</p>
+                                    <h3 class="text-3xl font-bold mt-2">${tauxPresence}%</h3>
+                                    <p class="text-sm mt-2">
+                                        <span class="bg-white/20 px-2 py-1 rounded">
+                                            ${absencesNonJustifiees} absences
+                                        </span>
+                                    </p>
                                 </div>
-                                <div class="text-[#E67D23] text-3xl">
-                                    <i class="fas fa-user-clock"></i>
+                                <div class="bg-white/20 p-3 rounded-lg">
+                                    <i class="fas fa-chart-line text-2xl"></i>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Cours du jour -->
-                    <div class="bg-white rounded-lg shadow-lg p-6">
-                        <h2 class="text-xl font-semibold mb-4">Cours du jour</h2>
-                        <div id="coursJourTable" class="overflow-x-auto">
-                            <div class="animate-pulse flex justify-center py-8">
-                                <div class="w-8 h-8 border-t-2 border-[#E67D23] rounded-full animate-spin"></div>
+                    <!-- Graphiques et tableaux -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Cours du jour -->
+                        <div class="bg-white rounded-xl shadow-lg p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h2 class="text-lg font-semibold text-gray-800">
+                                    <i class="fas fa-calendar-day mr-2 text-orange-500"></i>
+                                    Cours du jour
+                                </h2>
+                            </div>
+                            <div id="coursJourTable">
+                                <!-- Le contenu sera chargé dynamiquement -->
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Absences récentes -->
-                    <div class="bg-white rounded-lg shadow-lg p-6">
-                        <h2 class="text-xl font-semibold mb-4">Absences récentes</h2>
-                        <div id="absencesRecentesTable" class="overflow-x-auto">
-                            <div class="animate-pulse flex justify-center py-8">
-                                <div class="w-8 h-8 border-t-2 border-[#E67D23] rounded-full animate-spin"></div>
+                        <!-- Absences récentes -->
+                        <div class="bg-white rounded-xl shadow-lg p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h2 class="text-lg font-semibold text-gray-800">
+                                    <i class="fas fa-user-clock mr-2 text-orange-500"></i>
+                                    Absences récentes
+                                </h2>
+                            </div>
+                            <div id="absencesRecentesTable">
+                                <!-- Le contenu sera chargé dynamiquement -->
                             </div>
                         </div>
                     </div>
                 </div>
             `;
 
-            // Mettre à jour les statistiques
-            document.getElementById('totalEtudiants').textContent = etudiants.length;
-            document.getElementById('totalProfesseurs').textContent = professeurs.length;
-            document.getElementById('coursAujourdhui').textContent = cours.length;
-            document.getElementById('totalAbsences').textContent = absences.length;
-
-            // Afficher les cours du jour
-            const coursJourTable = document.getElementById('coursJourTable');
-            if (cours && cours.length > 0) {
-                coursJourTable.innerHTML = `
-                    <table class="min-w-full">
-                        <thead>
-                            <tr class="bg-gray-50">
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cours</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Horaires</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Professeur</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Salle</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            ${cours.map(cours => `
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="font-medium">${cours.libelle}</div>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        ${cours.heureDebut} - ${cours.heureFin}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        ${cours.professeur?.nom} ${cours.professeur?.prenom}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        ${cours.salle || 'Non définie'}
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-            } else {
-                coursJourTable.innerHTML = `
-                    <div class="text-center py-8 text-gray-500">
-                        <i class="fas fa-calendar-times text-4xl mb-4"></i>
-                        <div>Aucun cours prévu aujourd'hui</div>
-                    </div>
-                `;
-            }
-
-            // Afficher les absences récentes
-            const absencesRecentesTable = document.getElementById('absencesRecentesTable');
-            // Prendre les 5 dernières absences en triant d'abord par date
-            const absencesRecentes = absences
-                .sort((a, b) => new Date(b.dateAbs) - new Date(a.dateAbs))
-                .slice(0, 5);
-            
-            if (absencesRecentes.length > 0) {
-                absencesRecentesTable.innerHTML = `
-                    <table class="min-w-full">
-                        <thead>
-                            <tr class="bg-gray-50">
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Étudiant</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cours</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            ${absencesRecentes.map(absence => `
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        ${absence.etudiant?.nomComplet || 'Non défini'}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        ${absence.seance?.cours?.libelle || 'Non défini'}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        ${new Date(absence.dateAbs).toLocaleDateString('fr-FR')}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                            absence.statut === 'justifié' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                        }">
-                                            ${absence.statut || 'Non défini'}
-                                        </span>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-            } else {
-                absencesRecentesTable.innerHTML = `
-                    <div class="text-center py-8 text-gray-500">
-                        <i class="fas fa-check-circle text-4xl mb-4"></i>
-                        <div>Aucune absence récente</div>
-                    </div>
-                `;
-            }
+            // Initialiser le dashboard
+            const dashboard = new Dashboard();
+            await dashboard.loadCoursDuJour();
+            await dashboard.loadAbsencesRecentes();
 
         } catch (error) {
             console.error('Erreur lors du chargement du dashboard:', error);

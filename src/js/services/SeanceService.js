@@ -91,7 +91,40 @@ export class SeanceService {
     }
 
     async getSeancesByDate(date) {
-        const formattedDate = dateFormatter.toInputDate(new Date(date));
-        return dataProvider.get('/seances', { date: formattedDate, _expand: ['cours'] });
+        try {
+            const formattedDate = dateFormatter.toInputDate(new Date(date));
+            console.log('Recherche des séances pour la date:', formattedDate); // Debug
+
+            const response = await dataProvider.get('/seances', { 
+                date: formattedDate,
+                _expand: ['cours'],  // Inclure les détails du cours
+                _sort: 'heureDebut', // Trier par heure de début
+                _order: 'asc'        // Ordre croissant
+            });
+
+            // Enrichir chaque séance avec les détails du professeur
+            const seancesWithDetails = await Promise.all(response.data.map(async (seance) => {
+                if (seance.cours?.professeurId) {
+                    const professeurResponse = await dataProvider.get(`/professeurs/${seance.cours.professeurId}`);
+                    if (professeurResponse.success) {
+                        seance.cours.professeur = professeurResponse.data;
+                    }
+                }
+                return seance;
+            }));
+
+            console.log('Séances trouvées:', seancesWithDetails); // Debug
+
+            return {
+                data: seancesWithDetails,
+                total: response.total
+            };
+        } catch (error) {
+            console.error('Erreur dans getSeancesByDate:', error);
+            return {
+                data: [],
+                total: 0
+            };
+        }
     }
 } 

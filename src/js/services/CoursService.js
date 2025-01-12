@@ -49,8 +49,23 @@ export class CoursService {
     }
 
     async getCoursParDate(date) {
-        const formattedDate = dateFormatter.toInputDate(new Date(date));
-        return dataProvider.getCours({ dateCours: formattedDate });
+        try {
+            const formattedDate = dateFormatter.toInputDate(new Date(date));
+            console.log('Recherche des cours pour la date:', formattedDate); // Debug
+
+            const response = await dataProvider.get('/cours', { 
+                dateCours: formattedDate,
+                _expand: ['professeur', 'classe'],  // Inclure les détails du professeur et de la classe
+                _sort: 'heureDebut', // Trier par heure de début
+                _order: 'asc'        // Ordre croissant
+            });
+
+            console.log('Cours trouvés:', response.data); // Debug
+            return response.data || [];
+        } catch (error) {
+            console.error('Erreur dans getCoursParDate:', error);
+            return [];
+        }
     }
 
     async getAllCours() {
